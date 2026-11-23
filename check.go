@@ -37,7 +37,7 @@ func check(w io.Writer) int {
 		fmt.Fprintln(w, "ERRO: diretório home:", err)
 		return 1
 	}
-	paths, err := config.ResolvePaths(os.Getenv, home)
+	paths, err := config.ResolvePaths(runtime.GOOS, os.Getenv, home)
 	if err != nil {
 		fmt.Fprintln(w, "ERRO: diretórios do app:", err)
 		return 1
@@ -79,10 +79,14 @@ func check(w io.Writer) int {
 		}
 		fmt.Fprintf(w, "  %-13s %s\n", id.DisplayName(), line)
 	}
-	if t, err := terminal.Resolve(cfg.Terminal, exec.LookPath); err != nil {
+	if t, err := terminal.Resolve(runtime.GOOS, cfg.Terminal, exec.LookPath); err != nil {
 		fmt.Fprintln(w, "Terminal: —", err)
 	} else {
-		fmt.Fprintln(w, "Terminal:", t.Path)
+		if t.Console {
+			fmt.Fprintln(w, "Terminal: console (janela nova; Windows Terminal não encontrado)")
+		} else {
+			fmt.Fprintln(w, "Terminal:", t.Path)
+		}
 	}
 	return 0
 }
@@ -107,13 +111,13 @@ func testTerminal(w io.Writer, args []string) int {
 		fmt.Fprintln(w, "ERRO:", err)
 		return 1
 	}
-	paths, err := config.ResolvePaths(os.Getenv, home)
+	paths, err := config.ResolvePaths(runtime.GOOS, os.Getenv, home)
 	if err != nil {
 		fmt.Fprintln(w, "ERRO:", err)
 		return 1
 	}
 	cfg, _ := config.Load(paths.ConfigFile())
-	t, err := terminal.Resolve(cfg.Terminal, exec.LookPath)
+	t, err := terminal.Resolve(runtime.GOOS, cfg.Terminal, exec.LookPath)
 	if err != nil {
 		fmt.Fprintln(w, "ERRO:", err)
 		return 1

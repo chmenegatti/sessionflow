@@ -21,7 +21,17 @@
 
 ## Instalação
 
-AppImage, `.deb`, `.rpm` e `.tar.gz` para Linux x86_64. O passo a passo, os requisitos de cada formato e as distros validadas estão em **[docs/INSTALL.md](docs/INSTALL.md)**. Resumo:
+Windows 10/11 (x64), macOS 13+ (Intel e Apple Silicon) e Linux x86_64, no [GitHub Releases](https://github.com/chmenegatti/sessionflow/releases). O passo a passo, os requisitos de cada formato e o que foi validado estão em **[docs/INSTALL.md](docs/INSTALL.md)**.
+
+| Sistema | Arquivo |
+|---|---|
+| Windows | `SessionFlow-X.Y.Z-windows-amd64-setup.exe` (instala só para o seu usuário, sem pedir administrador) ou `…-portable.zip` |
+| macOS | `SessionFlow-X.Y.Z-macos-universal.dmg` |
+| Linux | `.deb`, `.rpm`, AppImage ou `.tar.gz` |
+
+**Primeira abertura:** os pacotes não têm assinatura paga. No Windows, o SmartScreen avisa: clique em *Mais informações* → *Executar assim mesmo*. No macOS, o Gatekeeper bloqueia a primeira abertura: clique com o botão direito no app → *Abrir* (ou rode `xattr -dr com.apple.quarantine /Applications/SessionFlow.app`).
+
+Linux, resumo:
 
 ```bash
 sudo apt install ./sessionflow_0.1.0_amd64.deb          # Ubuntu 24.04+, Debian 13+
@@ -73,6 +83,8 @@ Capturas de tela (README, site) usam dados sintéticos, nunca conversas reais: `
 > O modo servidor (`make server`) expõe os serviços (leitura dos históricos, favoritos, tags) em HTTP no `localhost`. O Wails recusa `Host` e `Origin` estranhos (sites externos não chamam os bindings), mas qualquer processo local pode. Use só para testes, nunca com `WAILS_SERVER_HOST` fora do loopback.
 
 ## Arquivos locais
+
+No Linux (abaixo); no Windows e no macOS as pastas seguem o padrão do sistema (tabela em [docs/INSTALL.md](docs/INSTALL.md#dados)).
 
 | O quê | Onde | Reconstruível? |
 |---|---|---|

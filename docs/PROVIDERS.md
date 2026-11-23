@@ -47,6 +47,21 @@ Regras comuns:
 
 Detalhes, regras de qualidade e limitações em [ANALYTICS.md](ANALYTICS.md).
 
+## Windows e macOS (0.2.0)
+
+Levantado em 2026-11-23 pela documentação oficial; o que não tem fonte oficial está marcado e é conferido no roteiro manual (`docs/manual-tests/0.2.0.md`).
+
+| | Claude Code | OpenAI Codex | OpenCode |
+|---|---|---|---|
+| Histórico (Windows) | `%USERPROFILE%\.claude` (ou `CLAUDE_CONFIG_DIR`) | `%USERPROFILE%\.codex` (ou `CODEX_HOME`) | `%USERPROFILE%\.local\share\opencode` (ou `XDG_DATA_HOME\opencode`) — documentação oficial de troubleshooting |
+| Histórico (macOS) | `~/.claude` | `~/.codex` | `~/.local/share/opencode` (não usa `~/Library`) |
+| CLI (Windows) | `PATH` → `%USERPROFILE%\.local\bin\claude.exe` (instalador nativo, documentação oficial) | `PATH` (instalador `install.ps1` ou npm; local exato sem fonte oficial — conferir no roteiro) | `PATH` → `%USERPROFILE%\.opencode\bin\opencode.exe` |
+| CLI (macOS) | `PATH` → `~/.local/bin/claude` (link para `~/.local/share/claude/versions/`), `~/.claude/local/claude`, `/opt/homebrew/bin/claude`, `/usr/local/bin/claude` (npm do Homebrew) | `PATH` → `~/.local/bin/codex`, `/opt/homebrew/bin/codex`, `/usr/local/bin/codex` (Homebrew cask) | `PATH` → `~/.opencode/bin/opencode`, `~/.local/bin/opencode`, `/opt/homebrew/bin/opencode` |
+
+- **Só `.exe` retoma no Windows.** Instalações por npm criam *shims* `.cmd`/`.ps1` (ex.: `%APPDATA%\npm\codex.cmd`), que só rodam por um shell; a retomada mostra o comando para copiar (regra de não usar shell).
+- **Projeto do Claude no Windows:** o diretório em `projects/` troca todo caractere que não é letra ou número por `-` (`C:\Users\José Silva\proj` → `C--Users-Jos--Silva-proj`). O SessionFlow nunca decodifica esse nome: o caminho vem do `cwd` das linhas (fixture `docs/discovery/fixtures/windows`).
+- **CRLF:** o leitor JSONL aceita linhas terminadas em `\r\n` (teste com o fixture do Windows).
+
 ## Retomada (Fase 6)
 
 O `ResumeService` valida a sessão e monta `{executável, argumentos, diretório}`; o `terminal.ExecLauncher` abre um emulador com exec direto, sem shell. Validado em 2026-11-22 com as CLIs instaladas, cada uma num pseudo-terminal com o argv exato do serviço, sem digitar nada e encerrando em seguida:

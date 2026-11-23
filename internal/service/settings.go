@@ -5,6 +5,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"runtime"
 	"slices"
 	"strings"
 
@@ -16,7 +17,7 @@ import (
 
 // Erros de validação das configurações exibidos ao usuário.
 var (
-	ErrPathNotAbsolute = errors.New("informe um caminho absoluto (começando com /)")
+	ErrPathNotAbsolute = errors.New("informe um caminho absoluto (completo)")
 	ErrNotExecutable   = errors.New("o arquivo não existe ou não é executável")
 	ErrNotDirectory    = errors.New("o diretório não existe")
 )
@@ -80,7 +81,7 @@ func (s *SettingsService) Get(context.Context) SettingsView {
 		pc, old := cfg.Providers[id], s.startup.Providers[id]
 		ps := ProviderSettings{
 			ID: id, Name: id.DisplayName(), Enabled: pc.Enabled, RootDir: pc.RootDir, CLIPath: pc.CLIPath,
-			DefaultRoot: config.DefaultProviderRoot(id, s.env.Env, s.env.Home),
+			DefaultRoot: config.DefaultProviderRoot(runtime.GOOS, id, s.env.Env, s.env.Home),
 		}
 		if r, ok := s.resumers[id]; ok {
 			ps.DetectedCLI = r.CLI(pc.CLIPath)
@@ -91,7 +92,7 @@ func (s *SettingsService) Get(context.Context) SettingsView {
 		v.Providers = append(v.Providers, ps)
 	}
 	v.Terminal = TerminalSettings{Path: cfg.Terminal.Path, Args: nonNil(cfg.Terminal.Args)}
-	if t, err := terminal.Resolve(cfg.Terminal, s.look); err != nil {
+	if t, err := terminal.Resolve(runtime.GOOS, cfg.Terminal, s.look); err != nil {
 		v.Terminal.Error = err.Error()
 	} else {
 		v.Terminal.Resolved = t.Path
@@ -109,7 +110,7 @@ func (s *SettingsService) SetCLIPath(_ context.Context, id domain.ProviderID, pa
 		if !filepath.IsAbs(path) {
 			return ErrPathNotAbsolute
 		}
-		if info, err := os.Stat(path); err != nil || !info.Mode().IsRegular() || info.Mode().Perm()&0o111 == 0 {
+		if !provider.IsCLIFile(path) {
 			return ErrNotExecutable
 		}
 		path = filepath.Clean(path)
@@ -159,7 +160,7 @@ func (s *SettingsService) SetTerminal(_ context.Context, path string, args []str
 		if !filepath.IsAbs(path) {
 			return ErrPathNotAbsolute
 		}
-		if _, err := terminal.Resolve(t, s.look); err != nil {
+		if _, err := terminal.Resolve(runtime.GOOS, t, s.look); err != nil {
 			return err
 		}
 		t.Path = filepath.Clean(path)

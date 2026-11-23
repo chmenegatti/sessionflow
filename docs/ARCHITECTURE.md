@@ -139,6 +139,7 @@ Migrations: `internal/repository/sqlite/migrations/{index,user}/NNNN_nome.sql`, 
   - Diretório de dados e habilitação valem ao reiniciar (adaptadores e watcher são montados no início); a interface avisa.
   - Config inválido no disco não é sobrescrito pela interface.
 - **Bindings**: todo método exportado de um serviço vira binding, então opções ficam no construtor (`NewWatchedSync`). `SyncService.Changed` é exportado porque o watcher (em `main`) o chama; chamado pelo frontend, só pede uma indexação.
+- **macOS:** o fsnotify usa kqueue, que gasta um descritor de arquivo por pasta observada (no Linux, inotify gasta um *watch*). O Go (≥ 1.19) sobe o limite flexível de arquivos abertos ao máximo permitido ao iniciar (teste `TestFileLimitRaisedOnDarwin`). Se mesmo assim uma pasta não puder ser observada, o watcher entra no modo degradado já existente: registra uma vez e a reconciliação periódica (1 min) cobre as mudanças. Medição com um histórico real: roteiro `docs/manual-tests/0.2.0.md`.
 
 ## Analytics (Fase 8)
 

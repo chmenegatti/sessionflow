@@ -2,6 +2,7 @@ package service
 
 import (
 	"path/filepath"
+	"runtime"
 
 	"sessionflow/internal/config"
 	"sessionflow/internal/domain"
@@ -29,7 +30,7 @@ func (e ProviderEnv) Root(id domain.ProviderID) string {
 	if r := e.Config.Providers[id].RootDir; r != "" {
 		return r
 	}
-	return config.DefaultProviderRoot(id, e.Env, e.Home)
+	return config.DefaultProviderRoot(runtime.GOOS, id, e.Env, e.Home)
 }
 
 // Disabled devolve os providers desabilitados na configuração.

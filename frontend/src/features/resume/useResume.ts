@@ -30,6 +30,10 @@ export function useResume() {
         notify(errorMessage(err), "error");
         return;
       }
+      if (plan.copyOnly) {
+        notify(plan.copyReason, "error"); // Ctrl+Enter: o painel oferece copiar o comando
+        return;
+      }
       if (plan.active) setConfirm(plan);
       else await launch(plan, false);
     },

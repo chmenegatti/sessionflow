@@ -7,6 +7,7 @@ import (
 	"log/slog"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"time"
 
@@ -40,7 +41,20 @@ type ResumePlan struct {
 	Command   string            `json:"command"`  // linha legível (não é executada)
 	Terminal  string            `json:"terminal"` // nome do emulador
 	Active    bool              `json:"active"`   // alterada há menos de um minuto
+	// CopyOnly: o SessionFlow não abre esta retomada sem shell; a tela
+	// oferece copiar Command e explica em CopyReason.
+	CopyOnly   bool   `json:"copyOnly"`
+	CopyReason string `json:"copyReason"`
 }
+
+// ErrCopyOnly: Resume num plano que só pode ser copiado.
+var ErrCopyOnly = errors.New("esta retomada não pode ser aberta pelo SessionFlow; copie o comando")
+
+// copyReasonMac: macOS sem emulador que aceite o comando como argv.
+const copyReasonMac = "O Terminal.app só abre comandos por AppleScript ou shell, que o SessionFlow não usa. Copie o comando e rode no Terminal, ou instale kitty, WezTerm, Alacritty ou Ghostty (ou configure um terminal em Configurações)."
+
+// copyReasonShim: CLI do Windows que não é .exe.
+const copyReasonShim = "A CLI instalada é um script (.cmd ou .ps1), que só roda por um shell; o SessionFlow não abre comandos por shell. Copie o comando e rode no seu terminal, ou aponte para um .exe em Configurações."
 
 // ResumeService retoma sessões pela CLI original, num terminal.
 type ResumeService struct {
@@ -51,6 +65,7 @@ type ResumeService struct {
 	look      terminal.LookPath
 	now       func() time.Time
 	log       *slog.Logger
+	goos      string
 }
 
 // ResumeDeps são as dependências do ResumeService.
@@ -62,6 +77,7 @@ type ResumeDeps struct {
 	LookPath  terminal.LookPath
 	Now       func() time.Time // nil = time.Now
 	Logger    *slog.Logger
+	GOOS      string // "" = runtime.GOOS
 }
 
 // NewResumeService cria o serviço.
@@ -74,7 +90,11 @@ func NewResumeService(d ResumeDeps) *ResumeService {
 	if now == nil {
 		now = time.Now
 	}
-	return &ResumeService{index: d.Index, providers: m, config: d.Config, launcher: d.Launcher, look: d.LookPath, now: now, log: d.Logger}
+	goos := d.GOOS
+	if goos == "" {
+		goos = runtime.GOOS
+	}
+	return &ResumeService{index: d.Index, providers: m, config: d.Config, launcher: d.Launcher, look: d.LookPath, now: now, log: d.Logger, goos: goos}
 }
 
 // Plan valida a sessão e monta o comando, sem executar.
@@ -89,6 +109,9 @@ func (r *ResumeService) Resume(ctx context.Context, id string, allowActive bool)
 	plan, term, cmd, err := r.plan(ctx, id)
 	if err != nil {
 		return plan, err
+	}
+	if plan.CopyOnly {
+		return plan, ErrCopyOnly
 	}
 	if plan.Active && !allowActive {
 		return plan, ErrSessionActive
@@ -143,16 +166,28 @@ func (r *ResumeService) plan(ctx context.Context, id string) (ResumePlan, termin
 	if err != nil {
 		return plan, term, cmd, err
 	}
-	term, err = terminal.Resolve(cfg.Terminal, r.look)
+	cmd = terminal.Command{Path: cli, Args: args, Dir: dir}
+	if r.goos == "windows" && !strings.EqualFold(filepath.Ext(cli), ".exe") {
+		plan.CLIPath, plan.Args, plan.Dir = cli, args, dir
+		plan.Command = displayCommandOS(r.goos, cmd.Argv())
+		plan.CopyOnly, plan.CopyReason = true, copyReasonShim
+		return plan, term, cmd, nil
+	}
+	term, err = terminal.Resolve(r.goos, cfg.Terminal, r.look)
+	if r.goos == "darwin" && errors.Is(err, terminal.ErrNoTerminal) {
+		plan.CLIPath, plan.Args, plan.Dir = cli, args, dir
+		plan.Command = displayCommandOS(r.goos, cmd.Argv())
+		plan.CopyOnly, plan.CopyReason = true, copyReasonMac
+		return plan, term, cmd, nil
+	}
 	if err != nil {
 		return plan, term, cmd, err
 	}
-	cmd = terminal.Command{Path: cli, Args: args, Dir: dir}
 	if err := term.Check(cmd); err != nil {
 		return plan, term, cmd, err
 	}
 	plan.CLIPath, plan.Args, plan.Dir = cli, args, dir
-	plan.Command = displayCommand(cmd.Argv())
+	plan.Command = displayCommandOS(r.goos, cmd.Argv())
 	plan.Terminal = term.Name()
 	plan.Active = r.active(s)
 	return plan, term, cmd, nil
@@ -190,6 +225,28 @@ func sessionActive(s domain.Session, now time.Time) bool {
 		}
 	}
 	return !last.IsZero() && now.Sub(last) < activeWindow
+}
+
+// displayCommandOS: no Windows, sintaxe do PowerShell (shell padrão do
+// Windows Terminal), para o comando copiado rodar ao colar: & 'caminho' e
+// aspas simples dobradas. Nos outros, displayCommand.
+func displayCommandOS(goos string, argv []string) string {
+	if goos != "windows" {
+		return displayCommand(argv)
+	}
+	quote := func(a string) string { return "'" + strings.ReplaceAll(a, "'", "''") + "'" }
+	parts := make([]string, len(argv))
+	for i, a := range argv {
+		if i > 0 && a != "" && !strings.ContainsFunc(a, func(r rune) bool {
+			return !(r == '-' || r == '_' || r == '.' || r == ':' || r == '=' ||
+				(r >= 'a' && r <= 'z') || (r >= 'A' && r <= 'Z') || (r >= '0' && r <= '9'))
+		}) {
+			parts[i] = a
+			continue
+		}
+		parts[i] = quote(a)
+	}
+	return "& " + strings.Join(parts, " ")
 }
 
 // displayCommand monta uma linha legível do argv, com aspas simples onde

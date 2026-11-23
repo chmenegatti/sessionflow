@@ -2,6 +2,7 @@ package domain
 
 import (
 	"errors"
+	"runtime"
 	"testing"
 )
 
@@ -65,6 +66,9 @@ func TestNormalizeProjectPath(t *testing.T) {
 		"/home/u/./proj//":  "/home/u/proj",
 		"/home/u/x/../proj": "/home/u/proj",
 		"/":                 "/",
+	}
+	if runtime.GOOS == "windows" {
+		cases[`C:\Users\José Silva\proj\`] = `C:\Users\José Silva\proj`
 	}
 	for in, want := range cases {
 		got, err := NormalizeProjectPath(in)

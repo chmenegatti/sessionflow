@@ -15,6 +15,7 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"time"
 
@@ -617,9 +618,7 @@ func (p *parser) session() domain.Session {
 
 // CLI procura o executável claude (configurado, PATH, ~/.local/bin).
 func (a *Adapter) CLI(configured string) string {
-	return provider.FindCLI(configured, "claude", a.o.LookPath,
-		filepath.Join(a.o.Home, ".local", "bin", "claude"),
-		filepath.Join(a.o.Home, ".claude", "local", "claude"))
+	return provider.FindCLI(configured, "claude", a.o.LookPath, provider.CLICandidates(runtime.GOOS, domain.ProviderClaude, a.o.Home)...)
 }
 
 // ResumeArgs: claude --resume <uuid>. O Claude encontra a sessão de

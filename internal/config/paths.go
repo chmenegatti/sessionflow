@@ -5,6 +5,7 @@ package config
 import (
 	"errors"
 	"path/filepath"
+	"strings"
 
 	"sessionflow/internal/domain"
 )
@@ -22,17 +23,46 @@ type Paths struct {
 	CacheDir  string `json:"cacheDir"`
 }
 
-// ResolvePaths aplica a XDG Base Directory Specification: variável definida e
-// absoluta vence; caso contrário usa o padrão relativo a home.
-func ResolvePaths(env Env, home string) (Paths, error) {
-	if !filepath.IsAbs(home) {
+// ResolvePaths devolve as pastas da aplicação no padrão de cada sistema
+// (goos = runtime.GOOS; recebido como parâmetro para testar qualquer SO):
+//   - linux: XDG Base Directory (variável absoluta vence; senão padrão no home);
+//   - windows: %APPDATA%\SessionFlow (config) e %LOCALAPPDATA%\SessionFlow\{data,logs,cache};
+//   - darwin: ~/Library/Application Support/SessionFlow (config e dados), ~/Library/Logs e ~/Library/Caches.
+func ResolvePaths(goos string, env Env, home string) (Paths, error) {
+	if !IsAbsOS(goos, home) {
 		return Paths{}, errors.New("diretório home inválido")
 	}
-	xdg := func(key, fallback string) string {
-		if v := env(key); filepath.IsAbs(v) {
-			return filepath.Join(v, appDirName)
+	switch goos {
+	case "windows":
+		dir := func(key string, fallback ...string) string {
+			if v := env(key); IsAbsOS(goos, v) {
+				return v
+			}
+			return JoinOS(goos, append([]string{home}, fallback...)...)
 		}
-		return filepath.Join(home, fallback, appDirName)
+		roaming := dir("APPDATA", "AppData", "Roaming")
+		local := JoinOS(goos, dir("LOCALAPPDATA", "AppData", "Local"), winAppDir)
+		return Paths{
+			ConfigDir: JoinOS(goos, roaming, winAppDir),
+			DataDir:   JoinOS(goos, local, "data"),
+			StateDir:  JoinOS(goos, local, "logs"),
+			CacheDir:  JoinOS(goos, local, "cache"),
+		}, nil
+	case "darwin":
+		lib := JoinOS(goos, home, "Library")
+		support := JoinOS(goos, lib, "Application Support", winAppDir)
+		return Paths{
+			ConfigDir: support,
+			DataDir:   support,
+			StateDir:  JoinOS(goos, lib, "Logs", winAppDir),
+			CacheDir:  JoinOS(goos, lib, "Caches", winAppDir),
+		}, nil
+	}
+	xdg := func(key, fallback string) string {
+		if v := env(key); IsAbsOS(goos, v) {
+			return JoinOS(goos, v, appDirName)
+		}
+		return JoinOS(goos, home, fallback, appDirName)
 	}
 	return Paths{
 		ConfigDir: xdg("XDG_CONFIG_HOME", ".config"),
@@ -42,23 +72,59 @@ func ResolvePaths(env Env, home string) (Paths, error) {
 	}, nil
 }
 
+// winAppDir é o nome da pasta no Windows e no macOS (convenção desses
+// sistemas: nome do produto, não minúsculas).
+const winAppDir = "SessionFlow"
+
+// IsAbsOS e JoinOS seguem as regras do sistema goos, não as do sistema em que
+// o código roda (os testes montam caminhos do Windows no Linux).
+func IsAbsOS(goos, p string) bool {
+	if goos != "windows" {
+		return strings.HasPrefix(p, "/")
+	}
+	if strings.HasPrefix(p, `\\`) { // UNC: \\servidor\compartilhamento
+		return true
+	}
+	return len(p) >= 3 && p[1] == ':' && (p[2] == '\\' || p[2] == '/') &&
+		(p[0] >= 'A' && p[0] <= 'Z' || p[0] >= 'a' && p[0] <= 'z')
+}
+
+func JoinOS(goos string, parts ...string) string {
+	if goos != "windows" {
+		return filepath.ToSlash(filepath.Join(parts...))
+	}
+	out := ""
+	for _, p := range parts {
+		if p == "" {
+			continue
+		}
+		if out == "" {
+			out = strings.TrimRight(p, `\/`)
+			continue
+		}
+		out += `\` + strings.Trim(p, `\/`)
+	}
+	return out
+}
+
 func (p Paths) ConfigFile() string { return filepath.Join(p.ConfigDir, "config.json") }
 func (p Paths) IndexDB() string    { return filepath.Join(p.DataDir, "index.db") }
 func (p Paths) UserDB() string     { return filepath.Join(p.DataDir, "user.db") }
 func (p Paths) LogFile() string    { return filepath.Join(p.StateDir, "sessionflow.log") }
 
-// DefaultProviderRoot devolve o diretório raiz padrão de cada provider,
-// respeitando as variáveis documentadas (docs/discovery/02..04):
-//   - Claude Code: $CLAUDE_CONFIG_DIR ou ~/.claude
-//   - Codex:       $CODEX_HOME ou ~/.codex
-//   - OpenCode:    $XDG_DATA_HOME/opencode ou ~/.local/share/opencode
+// DefaultProviderRoot devolve o diretório raiz padrão de cada provider no
+// sistema goos, respeitando as variáveis documentadas (docs/PROVIDERS.md):
+//   - Claude Code: $CLAUDE_CONFIG_DIR ou <home>/.claude
+//   - Codex:       $CODEX_HOME ou <home>/.codex
+//   - OpenCode:    $XDG_DATA_HOME/opencode ou <home>/.local/share/opencode
+//     (também no Windows e no macOS: o OpenCode não usa AppData nem Library)
 //
 // A interpretação do conteúdo (projects/, sessions/, opencode.db) é
 // responsabilidade de cada adaptador.
-func DefaultProviderRoot(p domain.ProviderID, env Env, home string) string {
+func DefaultProviderRoot(goos string, p domain.ProviderID, env Env, home string) string {
 	abs := func(key string) string {
-		if v := env(key); filepath.IsAbs(v) {
-			return filepath.Clean(v)
+		if v := env(key); IsAbsOS(goos, v) {
+			return JoinOS(goos, v)
 		}
 		return ""
 	}
@@ -67,17 +133,17 @@ func DefaultProviderRoot(p domain.ProviderID, env Env, home string) string {
 		if v := abs("CLAUDE_CONFIG_DIR"); v != "" {
 			return v
 		}
-		return filepath.Join(home, ".claude")
+		return JoinOS(goos, home, ".claude")
 	case domain.ProviderCodex:
 		if v := abs("CODEX_HOME"); v != "" {
 			return v
 		}
-		return filepath.Join(home, ".codex")
+		return JoinOS(goos, home, ".codex")
 	case domain.ProviderOpenCode:
 		if v := abs("XDG_DATA_HOME"); v != "" {
-			return filepath.Join(v, "opencode")
+			return JoinOS(goos, v, "opencode")
 		}
-		return filepath.Join(home, ".local", "share", "opencode")
+		return JoinOS(goos, home, ".local", "share", "opencode")
 	}
 	return ""
 }

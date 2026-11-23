@@ -5,6 +5,8 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"runtime"
+	"sessionflow/internal/provider/providertest"
 	"strings"
 	"testing"
 	"time"
@@ -23,7 +25,7 @@ func newSettings(t *testing.T, loadErr error) (*SettingsService, string, string)
 	t.Helper()
 	dir := t.TempDir()
 	paths := config.Paths{ConfigDir: dir, DataDir: dir, CacheDir: dir, StateDir: dir}
-	cli := filepath.Join(dir, "claude-bin")
+	cli := providertest.Exe(dir, "claude-bin")
 	os.WriteFile(cli, nil, 0o755)
 	store := NewConfigStore(paths.ConfigFile(), config.Default(), loadErr)
 	env := ProviderEnv{Config: config.Default(), Env: noEnv, Home: dir, Paths: paths}
@@ -35,7 +37,7 @@ func newSettings(t *testing.T, loadErr error) (*SettingsService, string, string)
 func TestSettingsCLIPath(t *testing.T) {
 	s, dir, cli := newSettings(t, nil)
 	ctx := context.Background()
-	if v := s.Get(ctx); v.Providers[0].DetectedCLI != "" || v.Terminal.Error == "" || !v.Writable {
+	if v := s.Get(ctx); v.Providers[0].DetectedCLI != "" || (v.Terminal.Error == "") != consoleFallback || !v.Writable {
 		t.Fatalf("inicial: %+v", v)
 	}
 	plain := filepath.Join(dir, "plain")
@@ -79,7 +81,7 @@ func TestSettingsProviderNeedsRestart(t *testing.T) {
 func TestSettingsTerminal(t *testing.T) {
 	s, dir, cli := newSettings(t, nil)
 	ctx := context.Background()
-	if err := s.SetTerminal(ctx, "/nao/existe", nil); !errors.Is(err, terminal.ErrInvalidTerminal) {
+	if err := s.SetTerminal(ctx, providertest.Abs("nao", "existe"), nil); !errors.Is(err, terminal.ErrInvalidTerminal) {
 		t.Errorf("inexistente: %v", err)
 	}
 	if err := s.SetTerminal(ctx, cli, []string{"-e"}); !errors.Is(err, terminal.ErrInvalidTemplate) {
@@ -97,7 +99,7 @@ func TestSettingsTerminal(t *testing.T) {
 	if err := s.SetTerminal(ctx, "", nil); err != nil {
 		t.Fatal(err)
 	}
-	if v := s.Get(ctx); v.Terminal.Path != "" || !strings.Contains(v.Terminal.Error, "nenhum") {
+	if v := s.Get(ctx); v.Terminal.Path != "" || strings.Contains(v.Terminal.Error, "nenhum") == consoleFallback {
 		t.Errorf("volta a detectar: %+v", v.Terminal)
 	}
 	_ = dir
@@ -177,3 +179,7 @@ func TestWatcherKeepsIndexInSync(t *testing.T) {
 	os.Remove(file)
 	waitFor("exclusão", func() bool { return hits("morango") == 0 && hits("framboesa") == 0 })
 }
+
+// consoleFallback: no Windows sempre há onde retomar (console nova), então
+// "sem terminal" não é erro.
+var consoleFallback = runtime.GOOS == "windows"

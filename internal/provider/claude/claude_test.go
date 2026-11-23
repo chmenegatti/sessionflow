@@ -5,6 +5,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 
@@ -234,6 +235,9 @@ func TestParseSDKSessionGetsTitle(t *testing.T) {
 }
 
 func TestSourcesReportsUnreadableDir(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("chmod não bloqueia leitura no Windows (só marca somente leitura)")
+	}
 	if os.Getuid() == 0 {
 		t.Skip("root ignora permissões")
 	}

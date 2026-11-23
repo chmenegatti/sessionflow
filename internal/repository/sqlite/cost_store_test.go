@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"os"
 	"path/filepath"
+	"runtime"
 	"slices"
 	"testing"
 	"time"
@@ -241,7 +242,11 @@ func TestCostBreakdownBuckets(t *testing.T) {
 }
 
 func TestCostStoreAttachEscapedPath(t *testing.T) {
-	c := newCostEnv(t, filepath.Join(t.TempDir(), "a?b#c%d e"))
+	name := "a?b#c%d e"
+	if runtime.GOOS == "windows" {
+		name = "a#c%d e" // "?" não é permitido em nomes de arquivo do Windows
+	}
+	c := newCostEnv(t, filepath.Join(t.TempDir(), name))
 	c.estimateAll(t, map[domain.ProviderID]string{domain.ProviderClaude: "USD"})
 	rows, err := c.costs.Breakdown(context.Background(), sqlite.UsageFilter{NoTime: true}, false)
 	if err != nil || sumByCurrency(rows)["USD"].Total == 0 {

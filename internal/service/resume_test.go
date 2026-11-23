@@ -5,6 +5,8 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"runtime"
+	"sessionflow/internal/provider/providertest"
 	"slices"
 	"strings"
 	"testing"
@@ -42,6 +44,7 @@ type resumeEnv struct {
 	src      string // arquivo da sessão Claude principal
 	clis     map[domain.ProviderID]string
 	now      time.Time
+	deps     ResumeDeps
 }
 
 const (
@@ -58,7 +61,7 @@ func newResumeEnv(t *testing.T) *resumeEnv {
 	bin := filepath.Join(dir, "bin")
 	os.Mkdir(bin, 0o755)
 	for _, id := range domain.AllProviders() {
-		p := filepath.Join(bin, string(id))
+		p := providertest.Exe(bin, string(id))
 		os.WriteFile(p, nil, 0o755)
 		e.clis[id] = p
 	}
@@ -114,15 +117,17 @@ func newResumeEnv(t *testing.T) *resumeEnv {
 	providers := []provider.Provider{
 		claude.New(claude.Options{Home: dir}), codex.New(codex.Options{Home: dir}), opencode.New(opencode.Options{Home: dir}),
 	}
-	e.svc = NewResumeService(ResumeDeps{
+	e.deps = ResumeDeps{
 		Index: e.store, Providers: providers, Config: e.cfg, Launcher: e.launcher, LookPath: look,
-		Now: func() time.Time { return e.now }, Logger: discard,
-	})
+		Now: func() time.Time { return e.now }, Logger: discard, GOOS: "linux",
+	}
+	e.svc = NewResumeService(e.deps)
 	return e
 }
 
 // Cada provider: executável, argumentos e diretório certos, via terminal.
 func TestResumePerProvider(t *testing.T) {
+	skipLinuxTerminal(t)
 	e := newResumeEnv(t)
 	for _, c := range []struct {
 		id   string
@@ -148,6 +153,7 @@ func TestResumePerProvider(t *testing.T) {
 }
 
 func TestResumeRefusals(t *testing.T) {
+	skipLinuxTerminal(t)
 	e := newResumeEnv(t)
 	ctx := context.Background()
 	for id, want := range map[string]error{
@@ -169,7 +175,10 @@ func TestResumeRefusals(t *testing.T) {
 		t.Errorf("sem cli: %v", err)
 	}
 	// Terminal configurado inválido.
-	e.cfg.Update(func(c *config.Config) error { c.Terminal = terminal.Config{Path: "/nao/existe"}; return nil })
+	e.cfg.Update(func(c *config.Config) error {
+		c.Terminal = terminal.Config{Path: providertest.Abs("nao", "existe")}
+		return nil
+	})
 	if _, err := e.svc.Resume(ctx, "claude:"+claudeID, true); !errors.Is(err, terminal.ErrInvalidTerminal) {
 		t.Errorf("terminal: %v", err)
 	}
@@ -185,6 +194,7 @@ func TestResumeRefusals(t *testing.T) {
 
 // Fonte alterada há pouco: pede confirmação antes de abrir.
 func TestResumeActiveSessionNeedsConfirmation(t *testing.T) {
+	skipLinuxTerminal(t)
 	e := newResumeEnv(t)
 	ctx := context.Background()
 	os.Chtimes(e.src, e.now.Add(-10*time.Second), e.now.Add(-10*time.Second))
@@ -215,6 +225,16 @@ func TestDisplayCommand(t *testing.T) {
 	}
 }
 
+// No Windows o comando copiado é colado no PowerShell (padrão do Windows
+// Terminal): & 'caminho' e aspas simples dobradas.
+func TestDisplayCommandWindows(t *testing.T) {
+	got := displayCommandOS("windows", []string{`C:\Users\José Silva\AppData\Roaming\npm\claude.cmd`, "--resume", "abc-1", "it's", ""})
+	want := `& 'C:\Users\José Silva\AppData\Roaming\npm\claude.cmd' --resume abc-1 'it''s' ''`
+	if got != want {
+		t.Errorf("%s\n%s", got, want)
+	}
+}
+
 func TestWorkDir(t *testing.T) {
 	dir := t.TempDir()
 	file := filepath.Join(dir, "f")
@@ -226,5 +246,83 @@ func TestWorkDir(t *testing.T) {
 		if _, err := WorkDir(p); err == nil {
 			t.Errorf("%q aceito", p)
 		}
+	}
+}
+
+// Windows: CLI que é shim do npm (.cmd) só roda por um shell; a retomada
+// vira "copiar o comando" e nada é executado.
+func TestResumeWindowsCmdShimIsCopyOnly(t *testing.T) {
+	e := newResumeEnv(t)
+	shim := filepath.Join(filepath.Dir(e.clis[domain.ProviderClaude]), "claude.cmd")
+	os.WriteFile(shim, nil, 0o755)
+	e.cfg.Update(func(c *config.Config) error {
+		pc := c.Providers[domain.ProviderClaude]
+		pc.CLIPath = shim
+		c.Providers[domain.ProviderClaude] = pc
+		return nil
+	})
+	d := e.deps
+	d.GOOS = "windows"
+	svc := NewResumeService(d)
+	id := "claude:" + claudeID
+	plan, err := svc.Plan(context.Background(), id)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !plan.CopyOnly || !strings.Contains(plan.CopyReason, "shell") || plan.Command == "" {
+		t.Errorf("plano %+v", plan)
+	}
+	if _, err := svc.Resume(context.Background(), id, true); !errors.Is(err, ErrCopyOnly) {
+		t.Errorf("Resume: %v", err)
+	}
+	if len(e.launcher.calls) != 0 {
+		t.Errorf("launcher chamado: %+v", e.launcher.calls)
+	}
+}
+
+// Windows com .exe: lança (console nova quando não há Windows Terminal).
+func TestResumeWindowsExeLaunches(t *testing.T) {
+	e := newResumeEnv(t)
+	exe := filepath.Join(filepath.Dir(e.clis[domain.ProviderClaude]), "claude.exe")
+	os.WriteFile(exe, nil, 0o755)
+	e.cfg.Update(func(c *config.Config) error {
+		pc := c.Providers[domain.ProviderClaude]
+		pc.CLIPath = exe
+		c.Providers[domain.ProviderClaude] = pc
+		return nil
+	})
+	d := e.deps
+	d.GOOS = "windows"
+	plan, err := NewResumeService(d).Resume(context.Background(), "claude:"+claudeID, true)
+	if err != nil || plan.CopyOnly || plan.Terminal != "console" {
+		t.Fatalf("%+v %v", plan, err)
+	}
+	if len(e.launcher.terms) != 1 || !e.launcher.terms[0].Console {
+		t.Errorf("terminal %+v", e.launcher.terms)
+	}
+}
+
+// macOS sem emulador que aceite argv: copiar o comando.
+func TestResumeDarwinNoTerminalIsCopyOnly(t *testing.T) {
+	e := newResumeEnv(t)
+	d := e.deps
+	d.GOOS = "darwin"
+	d.LookPath = func(string) (string, error) { return "", errors.New("não") }
+	svc := NewResumeService(d)
+	plan, err := svc.Plan(context.Background(), "claude:"+claudeID)
+	if err != nil || !plan.CopyOnly || !strings.Contains(plan.CopyReason, "Terminal.app") {
+		t.Fatalf("%+v %v", plan, err)
+	}
+	if _, err := svc.Resume(context.Background(), "claude:"+claudeID, true); !errors.Is(err, ErrCopyOnly) || len(e.launcher.calls) != 0 {
+		t.Errorf("Resume: %v, chamadas %d", err, len(e.launcher.calls))
+	}
+}
+
+// skipLinuxTerminal: estes testes usam a detecção de terminal do Linux
+// (bit de execução), que não existe no Windows; lá valem os testes
+// TestResumeWindows*.
+func skipLinuxTerminal(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("detecção de terminal do Linux; no Windows ver TestResumeWindows*")
 	}
 }

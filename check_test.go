@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 )
@@ -21,7 +22,7 @@ func TestCheckEmptyHome(t *testing.T) {
 		t.Fatalf("código %d\n%s", code, out.String())
 	}
 	s := out.String()
-	for _, want := range []string{"SessionFlow ", "ausente (padrão", "ainda não criado", "Claude Code   not_found", "CLI não encontrada", "Terminal: —"} {
+	for _, want := range []string{"SessionFlow ", "ausente (padrão", "ainda não criado", "Claude Code   not_found", "CLI não encontrada", noTerminal} {
 		if !strings.Contains(s, want) {
 			t.Errorf("sem %q em:\n%s", want, s)
 		}
@@ -46,3 +47,7 @@ func TestTestTerminalArgs(t *testing.T) {
 		t.Errorf("sem terminal: %d %s", code, out.String())
 	}
 }
+
+// noTerminal: sem PATH, o Linux e o macOS não acham terminal; o Windows
+// abre uma console nova.
+var noTerminal = map[bool]string{true: "Terminal: console", false: "Terminal: —"}[runtime.GOOS == "windows"]

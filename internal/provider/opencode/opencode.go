@@ -18,6 +18,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"runtime"
 	"strings"
 
 	"sessionflow/internal/domain"
@@ -406,9 +407,7 @@ func firstText(bs []domain.Block) string {
 // CLI procura o executável opencode (configurado, PATH, instalador
 // oficial em ~/.opencode/bin, ~/.local/bin).
 func (a *Adapter) CLI(configured string) string {
-	return provider.FindCLI(configured, "opencode", a.o.LookPath,
-		filepath.Join(a.o.Home, ".opencode", "bin", "opencode"),
-		filepath.Join(a.o.Home, ".local", "bin", "opencode"))
+	return provider.FindCLI(configured, "opencode", a.o.LookPath, provider.CLICandidates(runtime.GOOS, domain.ProviderOpenCode, a.o.Home)...)
 }
 
 var sessionIDRe = regexp.MustCompile(`^ses_[0-9A-Za-z]{8,64}$`)

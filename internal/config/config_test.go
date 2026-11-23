@@ -4,6 +4,8 @@ import (
 	"log/slog"
 	"os"
 	"path/filepath"
+	"runtime"
+	"strconv"
 	"strings"
 	"testing"
 
@@ -13,7 +15,7 @@ import (
 func envOf(m map[string]string) Env { return func(k string) string { return m[k] } }
 
 func TestResolvePathsDefaults(t *testing.T) {
-	p, err := ResolvePaths(envOf(nil), "/home/u")
+	p, err := ResolvePaths("linux", envOf(nil), "/home/u")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -26,16 +28,16 @@ func TestResolvePathsDefaults(t *testing.T) {
 	if p != want {
 		t.Fatalf("got %+v", p)
 	}
-	if p.IndexDB() != "/home/u/.local/share/sessionflow/index.db" || p.UserDB() != "/home/u/.local/share/sessionflow/user.db" {
+	if p.IndexDB() != filepath.Join(p.DataDir, "index.db") || p.UserDB() != filepath.Join(p.DataDir, "user.db") {
 		t.Errorf("bancos: %s %s", p.IndexDB(), p.UserDB())
 	}
-	if p.ConfigFile() != "/home/u/.config/sessionflow/config.json" || p.LogFile() != "/home/u/.local/state/sessionflow/sessionflow.log" {
+	if p.ConfigFile() != filepath.Join(p.ConfigDir, "config.json") || p.LogFile() != filepath.Join(p.StateDir, "sessionflow.log") {
 		t.Errorf("arquivos: %s %s", p.ConfigFile(), p.LogFile())
 	}
 }
 
 func TestResolvePathsXDGOverrides(t *testing.T) {
-	p, _ := ResolvePaths(envOf(map[string]string{
+	p, _ := ResolvePaths("linux", envOf(map[string]string{
 		"XDG_CONFIG_HOME": "/x/cfg",
 		"XDG_DATA_HOME":   "relativo/ignorado", // spec XDG: caminho relativo deve ser ignorado
 	}), "/home/u")
@@ -48,7 +50,7 @@ func TestResolvePathsXDGOverrides(t *testing.T) {
 }
 
 func TestResolvePathsRejectsRelativeHome(t *testing.T) {
-	if _, err := ResolvePaths(envOf(nil), "home"); err == nil {
+	if _, err := ResolvePaths("linux", envOf(nil), "home"); err == nil {
 		t.Fatal("esperava erro")
 	}
 }
@@ -69,7 +71,7 @@ func TestDefaultProviderRoot(t *testing.T) {
 		{domain.ProviderOpenCode, map[string]string{"XDG_DATA_HOME": "/d"}, "/d/opencode"},
 	}
 	for _, c := range cases {
-		if got := DefaultProviderRoot(c.p, envOf(c.env), home); got != c.want {
+		if got := DefaultProviderRoot("linux", c.p, envOf(c.env), home); got != c.want {
 			t.Errorf("%s %v: got %q quer %q", c.p, c.env, got, c.want)
 		}
 	}
@@ -89,7 +91,7 @@ func TestSaveLoadRoundTrip(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "sub", "config.json")
 	c := Default()
 	c.LogLevel = "debug"
-	c.Providers[domain.ProviderOpenCode] = ProviderConfig{Enabled: false, RootDir: "/custom/oc", CLIPath: "/usr/bin/opencode"}
+	c.Providers[domain.ProviderOpenCode] = ProviderConfig{Enabled: false, RootDir: hostAbs("custom", "oc"), CLIPath: hostAbs("bin", "opencode")}
 	if err := Save(path, c); err != nil {
 		t.Fatal(err)
 	}
@@ -97,7 +99,7 @@ func TestSaveLoadRoundTrip(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if info.Mode().Perm() != 0o600 {
+	if runtime.GOOS != "windows" && info.Mode().Perm() != 0o600 { // Windows: proteção pelo perfil do usuário (ACL), sem bits de modo
 		t.Errorf("permissão %v", info.Mode().Perm())
 	}
 	got, err := Load(path)
@@ -161,7 +163,7 @@ func TestLoadToleratesNullAndPartialProviders(t *testing.T) {
 	cases := map[string]string{
 		"providers null": `{"logLevel":"info","providers":null}`,
 		"sem providers":  `{"logLevel":"info"}`,
-		"só rootDir":     `{"logLevel":"info","providers":{"claude":{"rootDir":"/x"}}}`,
+		"só rootDir":     `{"logLevel":"info","providers":{"claude":{"rootDir":` + strconv.Quote(hostAbs("x")) + `}}}`,
 		"objeto vazio":   `{}`,
 		"provider vazio": `{"providers":{"codex":{}}}`,
 	}
@@ -211,4 +213,32 @@ func TestLoadCurrencyHandEdited(t *testing.T) {
 			t.Errorf("%s → %q, log %q, %v", in, c.DefaultCurrency, c.LogLevel, err)
 		}
 	}
+}
+
+func TestDefaultProviderRootByOS(t *testing.T) {
+	for _, c := range []struct {
+		goos, home string
+		p          domain.ProviderID
+		env        map[string]string
+		want       string
+	}{
+		{"windows", `C:\Users\José Silva`, domain.ProviderClaude, nil, `C:\Users\José Silva\.claude`},
+		{"windows", `C:\Users\ana`, domain.ProviderClaude, map[string]string{"CLAUDE_CONFIG_DIR": `D:\claude`}, `D:\claude`},
+		{"windows", `C:\Users\ana`, domain.ProviderCodex, nil, `C:\Users\ana\.codex`},
+		{"windows", `C:\Users\ana`, domain.ProviderCodex, map[string]string{"CODEX_HOME": "rel"}, `C:\Users\ana\.codex`},
+		{"windows", `C:\Users\ana`, domain.ProviderOpenCode, nil, `C:\Users\ana\.local\share\opencode`},
+		{"windows", `C:\Users\ana`, domain.ProviderOpenCode, map[string]string{"XDG_DATA_HOME": `E:\dados`}, `E:\dados\opencode`},
+		{"darwin", "/Users/ana", domain.ProviderClaude, nil, "/Users/ana/.claude"},
+		{"darwin", "/Users/ana", domain.ProviderCodex, nil, "/Users/ana/.codex"},
+		{"darwin", "/Users/ana", domain.ProviderOpenCode, nil, "/Users/ana/.local/share/opencode"},
+	} {
+		if got := DefaultProviderRoot(c.goos, c.p, envOf(c.env), c.home); got != c.want {
+			t.Errorf("%s %s %v: got %q quer %q", c.goos, c.p, c.env, got, c.want)
+		}
+	}
+}
+
+// hostAbs: caminho absoluto válido no sistema que roda o teste.
+func hostAbs(parts ...string) string {
+	return filepath.Join(append([]string{filepath.VolumeName(os.TempDir()) + string(filepath.Separator)}, parts...)...)
 }

@@ -9,6 +9,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 
 	"github.com/wailsapp/wails/v3/pkg/application"
 
@@ -43,7 +44,7 @@ func run() error {
 	if err != nil {
 		return fmt.Errorf("diretório home: %w", err)
 	}
-	paths, err := config.ResolvePaths(os.Getenv, home)
+	paths, err := config.ResolvePaths(runtime.GOOS, os.Getenv, home)
 	if err != nil {
 		return err
 	}

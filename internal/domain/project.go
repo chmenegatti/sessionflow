@@ -2,7 +2,9 @@ package domain
 
 import (
 	"errors"
+	"path"
 	"path/filepath"
+	"strings"
 	"time"
 )
 
@@ -20,11 +22,19 @@ type Project struct {
 
 // NormalizeProjectPath limpa o caminho para que o mesmo diretório vindo de
 // providers diferentes produza a mesma chave de projeto.
+//
+// Caminho POSIX ("/...") vale em qualquer sistema e é limpo com as regras
+// POSIX (no Windows, filepath.Clean trocaria "/" por "\": sessões vindas de
+// Linux/WSL manteriam o caminho original). Caminho do Windows só vale no
+// Windows.
 func NormalizeProjectPath(p string) (string, error) {
-	if p == "" || !filepath.IsAbs(p) {
-		return "", ErrRelativeProjectPath
+	switch {
+	case strings.HasPrefix(p, "/"):
+		return path.Clean(p), nil
+	case p != "" && filepath.IsAbs(p):
+		return filepath.Clean(p), nil
 	}
-	return filepath.Clean(p), nil
+	return "", ErrRelativeProjectPath
 }
 
 // ProjectName devolve o nome exibido de um projeto (último segmento).

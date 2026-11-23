@@ -47,7 +47,7 @@ func TestStatusAfterScan(t *testing.T) {
 	customOC := filepath.Join(t.TempDir(), "oc")
 	os.MkdirAll(customOC, 0o700)
 
-	paths, _ := config.ResolvePaths(noEnv, home)
+	paths, _ := config.ResolvePaths("linux", noEnv, home)
 	idx := openIndex(t, paths)
 
 	cfg := config.Default()

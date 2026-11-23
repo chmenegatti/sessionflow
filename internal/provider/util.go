@@ -7,10 +7,12 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"runtime"
 	"strings"
 	"time"
 	"unicode/utf8"
 
+	"sessionflow/internal/config"
 	"sessionflow/internal/domain"
 )
 
@@ -41,9 +43,68 @@ func FindCLI(configured, name string, look LookPath, candidates ...string) strin
 	return ""
 }
 
-func isExecutable(p string) bool {
+func isExecutable(p string) bool { return IsCLIFile(p) }
+
+// IsCLIFile: p é um arquivo que pode ser a CLI de um agente neste sistema.
+// No Windows, .exe e também os scripts .cmd/.bat/.ps1 que o npm instala
+// (encontrados, mas a retomada só abre .exe: o resto exige shell); nos
+// outros, arquivo com bit de execução.
+func IsCLIFile(p string) bool {
 	info, err := os.Stat(p)
-	return err == nil && info.Mode().IsRegular() && info.Mode().Perm()&0o111 != 0
+	return err == nil && cliFileOK(runtime.GOOS, p, info)
+}
+
+// cliFileOK: no Windows, qualquer arquivo com extensão de CLI — o alias de
+// execução em WindowsApps (IO_REPARSE_TAG_APPEXECLINK) vem do os.Stat como
+// Irregular; nos outros, arquivo regular com bit de execução.
+func cliFileOK(goos, p string, info fs.FileInfo) bool {
+	if !cliName(goos, p) {
+		return false
+	}
+	if goos == "windows" {
+		return !info.IsDir()
+	}
+	return info.Mode().IsRegular() && info.Mode().Perm()&0o111 != 0
+}
+
+// cliName: extensões aceitas como CLI no sistema goos.
+func cliName(goos, p string) bool {
+	if goos != "windows" {
+		return true
+	}
+	switch strings.ToLower(filepath.Ext(p)) {
+	case ".exe", ".cmd", ".bat", ".ps1":
+		return true
+	}
+	return false
+}
+
+// CLICandidates: onde a CLI do provider costuma ficar fora do PATH, no
+// sistema goos (docs/PROVIDERS.md, "Windows e macOS").
+func CLICandidates(goos string, p domain.ProviderID, home string) []string {
+	j := func(parts ...string) string { return config.JoinOS(goos, append([]string{home}, parts...)...) }
+	switch {
+	case p == domain.ProviderClaude && goos == "windows":
+		return []string{j(".local", "bin", "claude.exe")}
+	case p == domain.ProviderClaude:
+		if goos == "darwin" {
+			return []string{j(".local", "bin", "claude"), j(".claude", "local", "claude"), "/opt/homebrew/bin/claude", "/usr/local/bin/claude"}
+		}
+		return []string{j(".local", "bin", "claude"), j(".claude", "local", "claude")}
+	case p == domain.ProviderCodex && goos == "windows":
+		return nil // instalador e npm: só pelo PATH (sem fonte oficial do local)
+	case p == domain.ProviderCodex && goos == "darwin":
+		return []string{j(".local", "bin", "codex"), "/opt/homebrew/bin/codex", "/usr/local/bin/codex"}
+	case p == domain.ProviderCodex:
+		return []string{j(".local", "bin", "codex")}
+	case p == domain.ProviderOpenCode && goos == "windows":
+		return []string{j(".opencode", "bin", "opencode.exe")}
+	case p == domain.ProviderOpenCode && goos == "darwin":
+		return []string{j(".opencode", "bin", "opencode"), j(".local", "bin", "opencode"), "/opt/homebrew/bin/opencode"}
+	case p == domain.ProviderOpenCode:
+		return []string{j(".opencode", "bin", "opencode"), j(".local", "bin", "opencode")}
+	}
+	return nil
 }
 
 // IsDir informa se p existe e é diretório.

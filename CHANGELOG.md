@@ -4,6 +4,18 @@ Formato: [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/). Versões: 
 
 ## [Não lançado]
 
+## [0.2.0] - pré-lançamento
+
+### Adicionado
+- **Windows 10/11 (x64)**: instalador por usuário (sem administrador, em `%LOCALAPPDATA%\Programs\SessionFlow`) e versão portátil em `.zip`. Dados em `%LOCALAPPDATA%\SessionFlow`.
+- **macOS 13+**: app universal (Intel e Apple Silicon) em `.dmg` e `.zip`, com assinatura ad-hoc. Dados em `~/Library/Application Support/SessionFlow`.
+- **Retomar no terminal** no Windows (Windows Terminal ou, sem ele, uma janela de console) e no macOS (kitty, WezTerm, Alacritty ou Ghostty). Sem shell intermediário, como no Linux.
+- **Copiar comando**: quando a retomada direta não é possível (CLI instalada pelo npm no Windows, que é um script `.cmd`; só o Terminal.app no macOS), o botão copia o comando pronto para colar.
+- `sessionflow --selftest`: autoteste sem janela, usado na verificação dos pacotes.
+
+### Alterado
+- Mensagem de caminho inválido nas Configurações: "informe um caminho absoluto (completo)", válida nos três sistemas.
+
 ## [0.1.0] - 2026-11-23
 
 Primeira versão.
@@ -41,5 +53,6 @@ Primeira versão.
 - **Recalcular** só grava se os dados ainda forem os da prévia; se uma sincronização ou mudança de preço aconteceu no meio, nada é gravado e a prévia é atualizada.
 - CSV com **BOM UTF-8** (acentos corretos no Excel do Windows) e proteção contra fórmula que também cobre tabulação, CR e espaços antes de `=`, `+`, `-`, `@`.
 
-[Não lançado]: https://github.com/chmenegatti/sessionflow/compare/v0.1.0...HEAD
+[Não lançado]: https://github.com/chmenegatti/sessionflow/compare/v0.2.0...HEAD
+[0.2.0]: https://github.com/chmenegatti/sessionflow/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/chmenegatti/sessionflow/releases/tag/v0.1.0

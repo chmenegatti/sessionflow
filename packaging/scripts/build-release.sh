@@ -23,7 +23,9 @@ echo "==> frontend"
 (cd frontend && npm ci --no-audit --no-fund && npm run build)
 
 echo "==> testes"
-go test ./...
+# -short: pula a medição de tempo do Analytics, que oscila em runner
+# compartilhado; a meta vale na máquina de desenvolvimento (make test).
+go test -short ./...
 
 echo "==> binário $VERSION"
 CGO_ENABLED=1 go build -tags production -trimpath -ldflags "-s -w -X main.version=$VERSION" -o stage/sessionflow .

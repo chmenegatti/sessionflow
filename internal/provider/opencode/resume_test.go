@@ -4,6 +4,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"sessionflow/internal/provider/providertest"
 	"slices"
 	"testing"
 
@@ -26,7 +27,7 @@ func TestResumeArgsRejectsBadIDs(t *testing.T) {
 
 func TestCLIConfiguredMustBeExecutable(t *testing.T) {
 	dir := t.TempDir()
-	bin := filepath.Join(dir, "bin")
+	bin := providertest.Exe(dir, "bin")
 	plain := filepath.Join(dir, "plain")
 	os.WriteFile(bin, nil, 0o755)
 	os.WriteFile(plain, nil, 0o644)
@@ -40,10 +41,11 @@ func TestCLIConfiguredMustBeExecutable(t *testing.T) {
 }
 
 func TestOpenCodeResumeArgs(t *testing.T) {
-	a := New(Options{RootDir: "/r", DBOverride: "/outro/oc.db"})
+	a := New(Options{RootDir: providertest.Abs("r"), DBOverride: providertest.Abs("outro", "oc.db")})
 	key := domain.SessionKey{Provider: domain.ProviderOpenCode, NativeID: "ses_3a1f9c2b7e0d4AbCdEf123456"}
-	got, err := a.ResumeArgs(domain.Session{Key: key, ProjectPath: "/p/app"})
-	if err != nil || !slices.Equal(got, []string{"/p/app", "--session", key.NativeID}) {
+	app := providertest.Abs("p", "app")
+	got, err := a.ResumeArgs(domain.Session{Key: key, ProjectPath: app})
+	if err != nil || !slices.Equal(got, []string{app, "--session", key.NativeID}) {
 		t.Errorf("%q %v", got, err)
 	}
 	// Sem diretório (ou relativo), o posicional poderia virar opção.
@@ -53,7 +55,7 @@ func TestOpenCodeResumeArgs(t *testing.T) {
 		}
 	}
 	w := a.WatchDirs()
-	if len(w) != 2 || w[0].Path != "/r" || w[1].Path != "/outro" || w[0].Recursive || w[1].Recursive {
+	if len(w) != 2 || w[0].Path != providertest.Abs("r") || w[1].Path != providertest.Abs("outro") || w[0].Recursive || w[1].Recursive {
 		t.Errorf("watch: %+v", w)
 	}
 }

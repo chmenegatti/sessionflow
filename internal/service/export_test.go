@@ -6,6 +6,7 @@ import (
 	"encoding/csv"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strconv"
 	"strings"
 	"testing"
@@ -71,7 +72,7 @@ func TestCostCSVContent(t *testing.T) {
 	if !strings.HasPrefix(*name, "sessionflow-custos-") || !strings.HasSuffix(*name, ".csv") {
 		t.Errorf("nome %q", *name)
 	}
-	if st, _ := os.Stat(path); st.Mode().Perm() != 0o600 {
+	if st, _ := os.Stat(path); runtime.GOOS != "windows" && st.Mode().Perm() != 0o600 { // Windows: sem bits de modo (ACL do perfil)
 		t.Errorf("permissão %v", st.Mode().Perm())
 	}
 	rows := readCSV(t, path)

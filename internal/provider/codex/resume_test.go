@@ -4,6 +4,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"sessionflow/internal/provider/providertest"
 	"slices"
 	"testing"
 
@@ -26,7 +27,7 @@ func TestResumeArgsRejectsBadIDs(t *testing.T) {
 
 func TestCLIConfiguredMustBeExecutable(t *testing.T) {
 	dir := t.TempDir()
-	bin := filepath.Join(dir, "bin")
+	bin := providertest.Exe(dir, "bin")
 	plain := filepath.Join(dir, "plain")
 	os.WriteFile(bin, nil, 0o755)
 	os.WriteFile(plain, nil, 0o644)
@@ -40,13 +41,13 @@ func TestCLIConfiguredMustBeExecutable(t *testing.T) {
 }
 
 func TestCodexResumeArgs(t *testing.T) {
-	a := New(Options{RootDir: "/r"})
+	a := New(Options{RootDir: providertest.Abs("r")})
 	id := "123e4567-e89b-12d3-a456-426614174000"
 	got, err := a.ResumeArgs(domain.Session{Key: domain.SessionKey{Provider: domain.ProviderCodex, NativeID: id}, ProjectPath: "/p"})
 	if err != nil || !slices.Equal(got, []string{"resume", id}) {
 		t.Errorf("%q %v", got, err)
 	}
-	if w := a.WatchDirs(); len(w) != 2 || w[0].Path != "/r/sessions" || !w[0].Recursive || !w[1].Recursive {
+	if w := a.WatchDirs(); len(w) != 2 || w[0].Path != providertest.Abs("r", "sessions") || !w[0].Recursive || !w[1].Recursive {
 		t.Errorf("watch: %+v", w)
 	}
 }

@@ -1,12 +1,29 @@
 import type { ReactNode } from "react";
 import { useNavigate } from "react-router";
-import { AlertTriangle, FolderGit2, GitBranch, MessagesSquare, MousePointerClick, Settings2, TerminalSquare, X } from "lucide-react";
+import {
+  AlertTriangle,
+  Copy,
+  FolderGit2,
+  GitBranch,
+  MessagesSquare,
+  MousePointerClick,
+  Settings2,
+  TerminalSquare,
+  X,
+} from "lucide-react";
 import { motion } from "motion/react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useAsync } from "@/hooks/useAsync";
-import { ResumeService, SessionService, list, type SessionDetail, type TagItem } from "@/lib/api";
+import { Clipboard } from "@wailsio/runtime";
+import {
+  ResumeService,
+  SessionService,
+  list,
+  type SessionDetail,
+  type TagItem,
+} from "@/lib/api";
 import { dateTime, plural } from "@/lib/format";
 import { useAppStore } from "@/lib/store";
 import { projectPath, sessionPath } from "@/lib/nav";
@@ -22,11 +39,19 @@ export function DetailPanel() {
   const selectedId = useAppStore((s) => s.selectedId);
   const select = useAppStore((s) => s.select);
   return (
-    <aside aria-label="Detalhes" className="glass flex w-80 shrink-0 flex-col border-l">
+    <aside
+      aria-label="Detalhes"
+      className="glass flex w-80 shrink-0 flex-col border-l"
+    >
       <div className="flex h-14 shrink-0 items-center border-b px-4 text-[13px] font-semibold">
         <span className="flex-1">Detalhes</span>
         {selectedId && (
-          <Button variant="ghost" size="icon-xs" aria-label="Limpar seleção" onClick={() => select(null)}>
+          <Button
+            variant="ghost"
+            size="icon-xs"
+            aria-label="Limpar seleção"
+            onClick={() => select(null)}
+          >
             <X />
           </Button>
         )}
@@ -34,7 +59,11 @@ export function DetailPanel() {
       {selectedId ? (
         <SessionDetails id={selectedId} />
       ) : (
-        <EmptyState icon={MousePointerClick} title="Nada selecionado" description="Selecione uma sessão para ver os detalhes." />
+        <EmptyState
+          icon={MousePointerClick}
+          title="Nada selecionado"
+          description="Selecione uma sessão para ver os detalhes."
+        />
       )}
     </aside>
   );
@@ -96,7 +125,11 @@ function Details({ d, known }: { d: SessionDetail; known: TagItem[] }) {
   const s = d.session;
   const navigate = useNavigate();
   const select = useAppStore((st) => st.select);
-  const kind = s.subagent ? "Subagente" : s.automated ? "Automática (sem prompt humano)" : "Sessão principal";
+  const kind = s.subagent
+    ? "Subagente"
+    : s.automated
+      ? "Automática (sem prompt humano)"
+      : "Sessão principal";
 
   return (
     <ScrollArea className="min-h-0 flex-1">
@@ -108,13 +141,19 @@ function Details({ d, known }: { d: SessionDetail; known: TagItem[] }) {
             </h2>
             <div className="flex flex-wrap items-center gap-1.5">
               <ProviderTag provider={s.provider} />
-              {s.archived && <span className="text-xs text-muted-foreground">arquivada</span>}
+              {s.archived && (
+                <span className="text-xs text-muted-foreground">arquivada</span>
+              )}
             </div>
           </div>
           <FavoriteButton id={s.id} favorite={s.favorite} size="icon-sm" />
         </div>
 
-        <Button size="sm" className="w-full" onClick={() => navigate(sessionPath(s.id))}>
+        <Button
+          size="sm"
+          className="w-full"
+          onClick={() => navigate(sessionPath(s.id))}
+        >
           <MessagesSquare /> Abrir conversa
         </Button>
 
@@ -141,7 +180,12 @@ function Details({ d, known }: { d: SessionDetail; known: TagItem[] }) {
           <Field label="Tipo">{kind}</Field>
           {d.parentId && (
             <Field label="Sessão pai">
-              <Button variant="link" size="xs" className="h-auto p-0" onClick={() => select(d.parentId)}>
+              <Button
+                variant="link"
+                size="xs"
+                className="h-auto p-0"
+                onClick={() => select(d.parentId)}
+              >
                 <GitBranch /> abrir sessão pai
               </Button>
             </Field>
@@ -149,13 +193,19 @@ function Details({ d, known }: { d: SessionDetail; known: TagItem[] }) {
           {d.children > 0 && <Field label="Subagentes">{d.children}</Field>}
           <Field label="Atualizada">{dateTime(s.updatedAt)}</Field>
           <Field label="Criada">{dateTime(s.createdAt)}</Field>
-          <Field label="Mensagens">{plural(s.messageCount, "mensagem", "mensagens")}</Field>
+          <Field label="Mensagens">
+            {plural(s.messageCount, "mensagem", "mensagens")}
+          </Field>
           <Field label="Modelo">{s.model || "—"}</Field>
           <Field label="ID">
-            <code className="font-mono text-[11px] select-all">{d.nativeId}</code>
+            <code className="font-mono text-[11px] select-all">
+              {d.nativeId}
+            </code>
           </Field>
           <Field label="Projeto">
-            <span className="font-mono text-[11px]">{s.projectPath || "—"}</span>
+            <span className="font-mono text-[11px]">
+              {s.projectPath || "—"}
+            </span>
           </Field>
           <Field label="Origem">
             <span className="font-mono text-[11px]" title={d.sourceKind}>
@@ -166,13 +216,29 @@ function Details({ d, known }: { d: SessionDetail; known: TagItem[] }) {
 
         {d.firstPrompt && (
           <section aria-label="Primeiro prompt" className="space-y-1.5">
-            <h3 className="text-xs font-medium text-muted-foreground">Primeiro prompt</h3>
-            <p className="rounded-md bg-muted/50 p-2 text-xs break-words whitespace-pre-wrap">{d.firstPrompt}</p>
+            <h3 className="text-xs font-medium text-muted-foreground">
+              Primeiro prompt
+            </h3>
+            <p className="rounded-md bg-muted/50 p-2 text-xs break-words whitespace-pre-wrap">
+              {d.firstPrompt}
+            </p>
           </section>
         )}
       </div>
     </ScrollArea>
   );
+}
+
+// copyCommand copia o comando da retomada (o diretório vai no aviso: o
+// comando precisa rodar nele).
+async function copyCommand(command: string, dir: string) {
+  const notify = useAppStore.getState().notify;
+  try {
+    await Clipboard.SetText(command);
+    notify(`Comando copiado. Rode em ${dir}.`);
+  } catch {
+    notify("Não foi possível copiar o comando.", "error");
+  }
 }
 
 // Retomada pela CLI: mostra o comando exato (ou por que não dá) antes de
@@ -191,7 +257,12 @@ function ResumeSection({ id }: { id: string }) {
           <TerminalSquare className="mt-0.5 size-3.5 shrink-0" /> {plan.error}
         </p>
         {/executável|terminal/i.test(plan.error) && (
-          <Button variant="link" size="xs" className="h-auto p-0" onClick={() => navigate("/settings")}>
+          <Button
+            variant="link"
+            size="xs"
+            className="h-auto p-0"
+            onClick={() => navigate("/settings")}
+          >
             <Settings2 /> Configurações
           </Button>
         )}
@@ -199,12 +270,34 @@ function ResumeSection({ id }: { id: string }) {
     );
   }
   if (!plan.data) return null;
+  const p = plan.data;
   return (
     <div className="space-y-1.5">
-      <Button variant="outline" size="sm" className="w-full" onClick={() => void resume(id)}>
-        <TerminalSquare /> Retomar no terminal
-        <kbd className="ml-auto font-mono text-[10px] text-muted-foreground">Ctrl ↵</kbd>
-      </Button>
+      {p.copyOnly ? (
+        <>
+          <Button
+            variant="outline"
+            size="sm"
+            className="w-full"
+            onClick={() => void copyCommand(p.command, p.dir)}
+          >
+            <Copy /> Copiar comando
+          </Button>
+          <p className="text-[11px] text-muted-foreground">{p.copyReason}</p>
+        </>
+      ) : (
+        <Button
+          variant="outline"
+          size="sm"
+          className="w-full"
+          onClick={() => void resume(id)}
+        >
+          <TerminalSquare /> Retomar no terminal
+          <kbd className="ml-auto font-mono text-[10px] text-muted-foreground">
+            Ctrl ↵
+          </kbd>
+        </Button>
+      )}
       <code
         className="block truncate rounded bg-muted/50 px-2 py-1 font-mono text-[10.5px] text-muted-foreground"
         title={`${plan.data.command}\nem ${plan.data.dir}\nterminal: ${plan.data.terminal}`}

@@ -1,9 +1,9 @@
-//go:build !unix
+//go:build !unix && !windows
 
 package lockfile
 
 import "os"
 
-// Windows/macOS ainda não são alvo (Fase 7): sem lock.
+// Outros sistemas (nenhum distribuído): sem lock.
 func lock(*os.File) error   { return nil }
 func unlock(*os.File) error { return nil }
