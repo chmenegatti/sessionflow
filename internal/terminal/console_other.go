@@ -2,6 +2,6 @@
 
 package terminal
 
-import "os/exec"
+import "errors"
 
-func newConsole(*exec.Cmd) {}
+func startConsole([]string, string) error { return errors.New("console: só no Windows") }

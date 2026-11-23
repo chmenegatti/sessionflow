@@ -169,14 +169,14 @@ func (r *ResumeService) plan(ctx context.Context, id string) (ResumePlan, termin
 	cmd = terminal.Command{Path: cli, Args: args, Dir: dir}
 	if r.goos == "windows" && !strings.EqualFold(filepath.Ext(cli), ".exe") {
 		plan.CLIPath, plan.Args, plan.Dir = cli, args, dir
-		plan.Command = displayCommand(cmd.Argv())
+		plan.Command = displayCommandOS(r.goos, cmd.Argv())
 		plan.CopyOnly, plan.CopyReason = true, copyReasonShim
 		return plan, term, cmd, nil
 	}
 	term, err = terminal.Resolve(r.goos, cfg.Terminal, r.look)
 	if r.goos == "darwin" && errors.Is(err, terminal.ErrNoTerminal) {
 		plan.CLIPath, plan.Args, plan.Dir = cli, args, dir
-		plan.Command = displayCommand(cmd.Argv())
+		plan.Command = displayCommandOS(r.goos, cmd.Argv())
 		plan.CopyOnly, plan.CopyReason = true, copyReasonMac
 		return plan, term, cmd, nil
 	}
@@ -187,7 +187,7 @@ func (r *ResumeService) plan(ctx context.Context, id string) (ResumePlan, termin
 		return plan, term, cmd, err
 	}
 	plan.CLIPath, plan.Args, plan.Dir = cli, args, dir
-	plan.Command = displayCommand(cmd.Argv())
+	plan.Command = displayCommandOS(r.goos, cmd.Argv())
 	plan.Terminal = term.Name()
 	plan.Active = r.active(s)
 	return plan, term, cmd, nil
@@ -225,6 +225,28 @@ func sessionActive(s domain.Session, now time.Time) bool {
 		}
 	}
 	return !last.IsZero() && now.Sub(last) < activeWindow
+}
+
+// displayCommandOS: no Windows, sintaxe do PowerShell (shell padrão do
+// Windows Terminal), para o comando copiado rodar ao colar: & 'caminho' e
+// aspas simples dobradas. Nos outros, displayCommand.
+func displayCommandOS(goos string, argv []string) string {
+	if goos != "windows" {
+		return displayCommand(argv)
+	}
+	quote := func(a string) string { return "'" + strings.ReplaceAll(a, "'", "''") + "'" }
+	parts := make([]string, len(argv))
+	for i, a := range argv {
+		if i > 0 && a != "" && !strings.ContainsFunc(a, func(r rune) bool {
+			return !(r == '-' || r == '_' || r == '.' || r == ':' || r == '=' ||
+				(r >= 'a' && r <= 'z') || (r >= 'A' && r <= 'Z') || (r >= '0' && r <= '9'))
+		}) {
+			parts[i] = a
+			continue
+		}
+		parts[i] = quote(a)
+	}
+	return "& " + strings.Join(parts, " ")
 }
 
 // displayCommand monta uma linha legível do argv, com aspas simples onde

@@ -1,8 +1,10 @@
 package provider
 
 import (
+	"io/fs"
 	"slices"
 	"testing"
+	"time"
 
 	"sessionflow/internal/domain"
 )
@@ -17,7 +19,7 @@ func TestCLICandidatesByOS(t *testing.T) {
 		{"linux", "/home/u", domain.ProviderClaude, []string{"/home/u/.local/bin/claude", "/home/u/.claude/local/claude"}},
 		{"linux", "/home/u", domain.ProviderCodex, []string{"/home/u/.local/bin/codex"}},
 		{"linux", "/home/u", domain.ProviderOpenCode, []string{"/home/u/.opencode/bin/opencode", "/home/u/.local/bin/opencode"}},
-		{"darwin", "/Users/u", domain.ProviderClaude, []string{"/Users/u/.local/bin/claude", "/Users/u/.claude/local/claude"}},
+		{"darwin", "/Users/u", domain.ProviderClaude, []string{"/Users/u/.local/bin/claude", "/Users/u/.claude/local/claude", "/opt/homebrew/bin/claude", "/usr/local/bin/claude"}},
 		{"darwin", "/Users/u", domain.ProviderCodex, []string{"/Users/u/.local/bin/codex", "/opt/homebrew/bin/codex", "/usr/local/bin/codex"}},
 		{"darwin", "/Users/u", domain.ProviderOpenCode, []string{"/Users/u/.opencode/bin/opencode", "/Users/u/.local/bin/opencode", "/opt/homebrew/bin/opencode"}},
 		{"windows", `C:\Users\José Silva`, domain.ProviderClaude, []string{`C:\Users\José Silva\.local\bin\claude.exe`}},
@@ -43,5 +45,35 @@ func TestCLINameWindows(t *testing.T) {
 	}
 	if !cliName("linux", "/usr/bin/codex") {
 		t.Error("linux: nome sem extensão recusado")
+	}
+}
+
+// fileInfo falso: o modo que o os.Stat do Windows dá a um alias de
+// execução (WindowsApps\wt.exe, IO_REPARSE_TAG_APPEXECLINK) é Irregular.
+type fakeInfo struct {
+	name string
+	mode fs.FileMode
+}
+
+func (f fakeInfo) Name() string       { return f.name }
+func (f fakeInfo) Size() int64        { return 0 }
+func (f fakeInfo) Mode() fs.FileMode  { return f.mode }
+func (f fakeInfo) ModTime() time.Time { return time.Time{} }
+func (f fakeInfo) IsDir() bool        { return f.mode.IsDir() }
+func (f fakeInfo) Sys() any           { return nil }
+
+func TestCLIFileOKWindowsAppExecLink(t *testing.T) {
+	alias := `C:\Users\u\AppData\Local\Microsoft\WindowsApps\claude.exe`
+	if !cliFileOK("windows", alias, fakeInfo{"claude.exe", fs.ModeIrregular}) {
+		t.Error("alias de execução recusado")
+	}
+	if cliFileOK("windows", `C:\x\claude.exe`, fakeInfo{"claude.exe", fs.ModeDir}) {
+		t.Error("diretório aceito")
+	}
+	if cliFileOK("darwin", "/x/claude", fakeInfo{"claude", fs.ModeIrregular | 0o755}) {
+		t.Error("arquivo irregular aceito fora do Windows")
+	}
+	if !cliFileOK("darwin", "/x/claude", fakeInfo{"claude", 0o755}) || cliFileOK("darwin", "/x/claude", fakeInfo{"claude", 0o644}) {
+		t.Error("bit de execução")
 	}
 }

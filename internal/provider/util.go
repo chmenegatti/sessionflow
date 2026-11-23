@@ -51,10 +51,20 @@ func isExecutable(p string) bool { return IsCLIFile(p) }
 // outros, arquivo com bit de execução.
 func IsCLIFile(p string) bool {
 	info, err := os.Stat(p)
-	if err != nil || !info.Mode().IsRegular() || !cliName(runtime.GOOS, p) {
+	return err == nil && cliFileOK(runtime.GOOS, p, info)
+}
+
+// cliFileOK: no Windows, qualquer arquivo com extensão de CLI — o alias de
+// execução em WindowsApps (IO_REPARSE_TAG_APPEXECLINK) vem do os.Stat como
+// Irregular; nos outros, arquivo regular com bit de execução.
+func cliFileOK(goos, p string, info fs.FileInfo) bool {
+	if !cliName(goos, p) {
 		return false
 	}
-	return runtime.GOOS == "windows" || info.Mode().Perm()&0o111 != 0
+	if goos == "windows" {
+		return !info.IsDir()
+	}
+	return info.Mode().IsRegular() && info.Mode().Perm()&0o111 != 0
 }
 
 // cliName: extensões aceitas como CLI no sistema goos.
@@ -77,6 +87,9 @@ func CLICandidates(goos string, p domain.ProviderID, home string) []string {
 	case p == domain.ProviderClaude && goos == "windows":
 		return []string{j(".local", "bin", "claude.exe")}
 	case p == domain.ProviderClaude:
+		if goos == "darwin" {
+			return []string{j(".local", "bin", "claude"), j(".claude", "local", "claude"), "/opt/homebrew/bin/claude", "/usr/local/bin/claude"}
+		}
 		return []string{j(".local", "bin", "claude"), j(".claude", "local", "claude")}
 	case p == domain.ProviderCodex && goos == "windows":
 		return nil // instalador e npm: só pelo PATH (sem fonte oficial do local)

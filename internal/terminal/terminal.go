@@ -8,6 +8,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -261,12 +262,18 @@ func (ExecLauncher) Launch(_ context.Context, t Terminal, cmd Command) error {
 		return err
 	}
 	// Sem o ambiente injetado pela AppImage.
+	if t.Console {
+		// Sem exec.Cmd: ele passaria NUL como entrada e saída padrão e a
+		// CLI não veria o console novo.
+		if err := startConsole(t.Argv(cmd), cmd.Dir); err != nil {
+			return fmt.Errorf("abrir %s: %w", t.Name(), err)
+		}
+		return nil
+	}
 	p := host.Current.Command(t.Argv(cmd), cmd.Dir)
+	p.Env = childEnv(runtime.GOOS, p.Env, cmd.Path)
 	p.Stdin, p.Stdout, p.Stderr = nil, nil, nil
 	detach(p)
-	if t.Console {
-		newConsole(p)
-	}
 	if err := p.Start(); err != nil {
 		return fmt.Errorf("abrir %s: %w", t.Name(), err)
 	}
@@ -295,13 +302,46 @@ func isExecutable(p string) bool { return isExecutableOS(runtime.GOOS, p) }
 // nos outros, arquivo com bit de execução.
 func isExecutableOS(goos, p string) bool {
 	info, err := os.Stat(p)
-	if err != nil || !info.Mode().IsRegular() {
-		return false
-	}
+	return err == nil && execFileOK(goos, p, info)
+}
+
+// execFileOK: no Windows o wt.exe costuma ser um alias de execução em
+// WindowsApps (IO_REPARSE_TAG_APPEXECLINK), que o os.Stat marca Irregular;
+// basta não ser diretório.
+func execFileOK(goos, p string, info fs.FileInfo) bool {
 	if goos == "windows" {
-		return strings.EqualFold(filepath.Ext(p), ".exe")
+		return !info.IsDir() && strings.EqualFold(filepath.Ext(p), ".exe")
 	}
-	return info.Mode().Perm()&0o111 != 0
+	return info.Mode().IsRegular() && info.Mode().Perm()&0o111 != 0
+}
+
+// childEnv: no macOS, aberto pelo Finder, o app herda o PATH mínimo do
+// launchd; a CLI instalada pelo npm (#!/usr/bin/env node) não acharia o
+// node. Põe a pasta da CLI e as do Homebrew na frente do PATH.
+func childEnv(goos string, env []string, cli string) []string {
+	if goos != "darwin" {
+		return env
+	}
+	out := slices.Clone(env)
+	idx, cur := -1, []string(nil)
+	for i, kv := range out {
+		if v, ok := strings.CutPrefix(kv, "PATH="); ok {
+			idx, cur = i, strings.Split(v, ":")
+			break
+		}
+	}
+	var path []string
+	for _, d := range append([]string{filepath.Dir(cli), "/opt/homebrew/bin", "/usr/local/bin"}, cur...) {
+		if d != "" && !slices.Contains(path, d) {
+			path = append(path, d)
+		}
+	}
+	kv := "PATH=" + strings.Join(path, ":")
+	if idx < 0 {
+		return append(out, kv)
+	}
+	out[idx] = kv
+	return out
 }
 
 func isDir(p string) bool {

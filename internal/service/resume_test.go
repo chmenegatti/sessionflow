@@ -225,6 +225,16 @@ func TestDisplayCommand(t *testing.T) {
 	}
 }
 
+// No Windows o comando copiado é colado no PowerShell (padrão do Windows
+// Terminal): & 'caminho' e aspas simples dobradas.
+func TestDisplayCommandWindows(t *testing.T) {
+	got := displayCommandOS("windows", []string{`C:\Users\José Silva\AppData\Roaming\npm\claude.cmd`, "--resume", "abc-1", "it's", ""})
+	want := `& 'C:\Users\José Silva\AppData\Roaming\npm\claude.cmd' --resume abc-1 'it''s' ''`
+	if got != want {
+		t.Errorf("%s\n%s", got, want)
+	}
+}
+
 func TestWorkDir(t *testing.T) {
 	dir := t.TempDir()
 	file := filepath.Join(dir, "f")
