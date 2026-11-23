@@ -4,6 +4,8 @@
 # --selftest) instalado e extraído. Saída em dist/.
 set -euo pipefail
 cd "$(dirname "$0")/../.."
+# expect PADRÃO CMD...: roda, mostra a saída e exige PADRÃO (o Git Bash do runner não tem o stderr como arquivo para o tee)
+expect() { local pat=$1; shift; "$@" > out.txt; cat out.txt; grep -q -- "$pat" out.txt; rm -f out.txt; }
 VERSION=$(tr -d '[:space:]' < VERSION)
 V=$VERSION   # rc só muda a tag e o release, não os arquivos
 mkdir -p dist bin
@@ -15,7 +17,7 @@ wails3 generate syso -arch amd64 -icon build/windows/icon.ico -manifest build/wi
 echo "==> binário"
 go build -tags production -trimpath -buildvcs=false -ldflags "-w -s -H windowsgui -X main.version=$V" -o bin/sessionflow.exe .
 rm -f wails_windows_amd64.syso
-./bin/sessionflow.exe --version | tee /dev/stderr | grep -qx "SessionFlow $V"
+expect "^SessionFlow $V\$" ./bin/sessionflow.exe --version
 
 echo "==> instalador (NSIS, por usuário)"
 command -v makensis >/dev/null || choco install nsis -y --no-progress
@@ -33,8 +35,8 @@ echo "==> verificação: instalar em silêncio, rodar, desinstalar"
 inst="$LOCALAPPDATA/Programs/SessionFlow"
 "dist/SessionFlow-$V-windows-amd64-setup.exe" /S
 test -f "$inst/sessionflow.exe"
-"$inst/sessionflow.exe" --version | grep -qx "SessionFlow $V"
-"$inst/sessionflow.exe" --selftest | tee /dev/stderr | grep -q "SELFTEST OK"
+expect "^SessionFlow $V\$" "$inst/sessionflow.exe" --version
+expect "SELFTEST OK" "$inst/sessionflow.exe" --selftest
 reg query 'HKCU\Software\Microsoft\Windows\CurrentVersion\Uninstall\SessionFlow' >/dev/null
 "$inst/uninstall.exe" /S
 for _ in $(seq 1 30); do [ -e "$inst/sessionflow.exe" ] || break; sleep 1; done # o desinstalador sai antes de terminar
@@ -43,6 +45,6 @@ test ! -e "$inst/sessionflow.exe"
 
 echo "==> verificação: portátil"
 rm -rf port && mkdir port && (cd port && 7z x "../dist/SessionFlow-$V-windows-amd64-portable.zip" >/dev/null)
-./port/sessionflow.exe --selftest | grep -q "SELFTEST OK"
+expect "SELFTEST OK" ./port/sessionflow.exe --selftest
 rm -rf port
 ls -la dist

@@ -42,9 +42,9 @@
 - Retomada: a detecção de "sessão ativa" é heurística (alteração há menos de 1 min); não há trava entre processos. As CLIs gravam no histórico ao abrir uma sessão (docs/PROVIDERS.md §Retomada), então tentar retomar e cancelar ainda marca a sessão como alterada.
 - Retomada: se a sessão passar a "ativa" entre o plano e a execução (segundos), o usuário vê o erro em vez da confirmação; basta repetir.
 - Flatpak descartado (ADR 0009); o que foi medido ao tentar fica registrado lá.
-- Workflows do GitHub prontos e não executados (o repositório ainda não existe).
-- Sem atualização automática dentro do app: novas versões por download.
-- Só Linux x86_64. arm64 exigiria builder arm64 (o CGO do WebKit não cruza fácil).
+- Sem atualização automática dentro do app: novas versões por download (atualização autorizada no milestone 0.3.0).
+- Linux só x86_64 (arm64 exigiria builder arm64: o CGO do WebKit não cruza fácil); Windows só x64.
+- Sem assinatura paga: SmartScreen no Windows e Gatekeeper no macOS pedem confirmação na primeira abertura.
 - Viewer aberto não acompanha a conversa em andamento (o cursor lê a fonte uma vez); listas, busca e detalhes acompanham pelo evento `index:updated`.
 - Sem gerenciamento global de tags (renomear/apagar): tags somem quando ficam sem uso.
 - Pesquisa por título na listagem (CLAUDE.md §7.3) continua pendente: o FTS indexa o texto das mensagens (o primeiro prompt costuma conter o assunto), não o título da sessão.

@@ -1,6 +1,30 @@
 # Instalação
 
-SessionFlow 0.1.0 · Linux x86_64. Os arquivos ficam no [GitHub Releases](https://github.com/chmenegatti/sessionflow/releases) (veja "Publicação" no fim). Todos saem do mesmo binário, compilado em Ubuntu 24.04.
+Windows 10/11 x64, macOS 13+ (universal) e Linux x86_64. Os arquivos ficam no [GitHub Releases](https://github.com/chmenegatti/sessionflow/releases) (veja "Publicação" no fim).
+
+## Windows
+
+| Arquivo | O que faz |
+|---|---|
+| `SessionFlow-X.Y.Z-windows-amd64-setup.exe` | instala para o seu usuário em `%LOCALAPPDATA%\Programs\SessionFlow`, sem pedir administrador; atalho no Menu Iniciar e na área de trabalho; desinstala por *Configurações → Aplicativos* |
+| `SessionFlow-X.Y.Z-windows-amd64-portable.zip` | só o `sessionflow.exe`: extraia e rode; os dados ficam nas mesmas pastas da versão instalada |
+
+- Requer o WebView2 (já vem no Windows 11 e no 10 atualizado; o instalador baixa se faltar).
+- **SmartScreen:** o instalador não tem assinatura paga. Na primeira execução, *Mais informações* → *Executar assim mesmo*.
+- **Retomar sessões:** abre no Windows Terminal (`wt.exe`) ou, sem ele, numa janela de console. CLI instalada pelo npm (`claude.cmd`, `codex.cmd`) só roda por um shell, que o SessionFlow não usa: o botão vira *Copiar comando*.
+- Todos os pacotes são verificados no CI: instalação silenciosa, `--version`, `--selftest` e desinstalação.
+
+## macOS
+
+`SessionFlow-X.Y.Z-macos-universal.dmg`: abra e arraste o SessionFlow para *Aplicativos*. Funciona em Intel e Apple Silicon, macOS 13 ou mais novo.
+
+- **Gatekeeper:** o app tem assinatura *ad-hoc* (sem conta Apple Developer). Na primeira abertura, clique com o botão direito no app → *Abrir* → *Abrir*, ou rode `xattr -dr com.apple.quarantine /Applications/SessionFlow.app`.
+- **Retomar sessões:** abre no kitty, WezTerm, Alacritty ou Ghostty (no PATH ou em `/Applications`). Só com o Terminal.app, o botão vira *Copiar comando*: abrir um comando no Terminal.app exigiria AppleScript ou shell.
+- Verificado no CI: binário universal (`lipo`), `codesign --verify`, `--version` e `--selftest`.
+
+## Linux
+
+Todos os pacotes saem do mesmo binário, compilado em Ubuntu 24.04.
 
 | Formato | Para quem | Requisitos | Validado em contêiner limpo (instalar, abrir, usar, remover) |
 |---|---|---|---|
@@ -88,12 +112,12 @@ Abre o terminal configurado rodando o comando no diretório, do mesmo jeito que 
 
 ## Dados
 
-| O quê | Onde |
-|---|---|
-| Configuração | `~/.config/sessionflow/config.json` |
-| Índice (reconstruível) | `~/.local/share/sessionflow/index.db` |
-| Favoritos e tags | `~/.local/share/sessionflow/user.db` |
-| Log | `~/.local/state/sessionflow/sessionflow.log` |
+| O quê | Linux | Windows | macOS |
+|---|---|---|---|
+| Configuração | `~/.config/sessionflow/config.json` | `%APPDATA%\SessionFlow\config.json` | `~/Library/Application Support/SessionFlow/config.json` |
+| Índice (reconstruível) | `~/.local/share/sessionflow/index.db` | `%LOCALAPPDATA%\SessionFlow\data\index.db` | `~/Library/Application Support/SessionFlow/index.db` |
+| Favoritos, tags, preços | `~/.local/share/sessionflow/user.db` | `%LOCALAPPDATA%\SessionFlow\data\user.db` | `~/Library/Application Support/SessionFlow/user.db` |
+| Log | `~/.local/state/sessionflow/sessionflow.log` | `%LOCALAPPDATA%\SessionFlow\logs\sessionflow.log` | `~/Library/Logs/SessionFlow/sessionflow.log` |
 
 Desinstalar o pacote não apaga esses arquivos nem, em hipótese alguma, os históricos dos agentes.
 
