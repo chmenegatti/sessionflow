@@ -50,6 +50,9 @@ type ResumePlan struct {
 // ErrCopyOnly: Resume num plano que só pode ser copiado.
 var ErrCopyOnly = errors.New("esta retomada não pode ser aberta pelo SessionFlow; copie o comando")
 
+// copyReasonMac: macOS sem emulador que aceite o comando como argv.
+const copyReasonMac = "O Terminal.app só abre comandos por AppleScript ou shell, que o SessionFlow não usa. Copie o comando e rode no Terminal, ou instale kitty, WezTerm, Alacritty ou Ghostty (ou configure um terminal em Configurações)."
+
 // copyReasonShim: CLI do Windows que não é .exe.
 const copyReasonShim = "A CLI instalada é um script (.cmd ou .ps1), que só roda por um shell; o SessionFlow não abre comandos por shell. Copie o comando e rode no seu terminal, ou aponte para um .exe em Configurações."
 
@@ -171,6 +174,12 @@ func (r *ResumeService) plan(ctx context.Context, id string) (ResumePlan, termin
 		return plan, term, cmd, nil
 	}
 	term, err = terminal.Resolve(r.goos, cfg.Terminal, r.look)
+	if r.goos == "darwin" && errors.Is(err, terminal.ErrNoTerminal) {
+		plan.CLIPath, plan.Args, plan.Dir = cli, args, dir
+		plan.Command = displayCommand(cmd.Argv())
+		plan.CopyOnly, plan.CopyReason = true, copyReasonMac
+		return plan, term, cmd, nil
+	}
 	if err != nil {
 		return plan, term, cmd, err
 	}

@@ -86,10 +86,35 @@ var autoDetect = []string{
 // autoDetectFor: ordem de procura em cada sistema. No Windows, sem o
 // Windows Terminal, o comando roda numa console nova (Terminal.Console).
 func autoDetectFor(goos string) []string {
-	if goos == "windows" {
+	switch goos {
+	case "windows":
 		return []string{"wt"}
+	case "darwin":
+		return macTerminals
 	}
 	return autoDetect
+}
+
+// macTerminals: no macOS, só emuladores que recebem o comando como argv
+// (o Terminal.app e o iTerm2 exigiriam AppleScript com o comando em
+// texto). Ghostty por último: no macOS ele não abre janela nova pela CLI
+// em todas as versões.
+var macTerminals = []string{"kitty", "wezterm", "alacritty", "ghostty"}
+
+// macAppDirs: onde procurar os .app quando o emulador não está no PATH.
+var macAppDirs = []string{"/Applications", filepath.Join(os.Getenv("HOME"), "Applications")}
+
+// macAppBundles: nome do .app e do executável dentro dele.
+var macAppBundles = map[string]string{"kitty": "kitty.app", "wezterm": "WezTerm.app", "alacritty": "Alacritty.app", "ghostty": "Ghostty.app"}
+
+func macBundled(name string) string {
+	for _, dir := range macAppDirs {
+		p := filepath.Join(dir, macAppBundles[name], "Contents", "MacOS", name)
+		if isExecutableOS("darwin", p) {
+			return p
+		}
+	}
+	return ""
 }
 
 // Erros exibidos ao usuário.
@@ -146,6 +171,11 @@ func Resolve(goos string, c Config, look LookPath) (Terminal, error) {
 	for _, name := range autoDetectFor(goos) {
 		if p, err := look(name); err == nil && filepath.IsAbs(p) && isExecutableOS(goos, p) {
 			return Terminal{Path: p, Args: known[name]}, nil
+		}
+		if goos == "darwin" {
+			if p := macBundled(name); p != "" {
+				return Terminal{Path: p, Args: known[name]}, nil
+			}
 		}
 	}
 	if goos == "windows" {

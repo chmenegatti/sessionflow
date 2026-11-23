@@ -283,3 +283,19 @@ func TestResumeWindowsExeLaunches(t *testing.T) {
 		t.Errorf("terminal %+v", e.launcher.terms)
 	}
 }
+
+// macOS sem emulador que aceite argv: copiar o comando.
+func TestResumeDarwinNoTerminalIsCopyOnly(t *testing.T) {
+	e := newResumeEnv(t)
+	d := e.deps
+	d.GOOS = "darwin"
+	d.LookPath = func(string) (string, error) { return "", errors.New("não") }
+	svc := NewResumeService(d)
+	plan, err := svc.Plan(context.Background(), "claude:"+claudeID)
+	if err != nil || !plan.CopyOnly || !strings.Contains(plan.CopyReason, "Terminal.app") {
+		t.Fatalf("%+v %v", plan, err)
+	}
+	if _, err := svc.Resume(context.Background(), "claude:"+claudeID, true); !errors.Is(err, ErrCopyOnly) || len(e.launcher.calls) != 0 {
+		t.Errorf("Resume: %v, chamadas %d", err, len(e.launcher.calls))
+	}
+}
