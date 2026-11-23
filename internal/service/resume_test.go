@@ -5,6 +5,8 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"runtime"
+	"sessionflow/internal/provider/providertest"
 	"slices"
 	"strings"
 	"testing"
@@ -59,7 +61,7 @@ func newResumeEnv(t *testing.T) *resumeEnv {
 	bin := filepath.Join(dir, "bin")
 	os.Mkdir(bin, 0o755)
 	for _, id := range domain.AllProviders() {
-		p := filepath.Join(bin, string(id))
+		p := providertest.Exe(bin, string(id))
 		os.WriteFile(p, nil, 0o755)
 		e.clis[id] = p
 	}
@@ -125,6 +127,7 @@ func newResumeEnv(t *testing.T) *resumeEnv {
 
 // Cada provider: executável, argumentos e diretório certos, via terminal.
 func TestResumePerProvider(t *testing.T) {
+	skipLinuxTerminal(t)
 	e := newResumeEnv(t)
 	for _, c := range []struct {
 		id   string
@@ -150,6 +153,7 @@ func TestResumePerProvider(t *testing.T) {
 }
 
 func TestResumeRefusals(t *testing.T) {
+	skipLinuxTerminal(t)
 	e := newResumeEnv(t)
 	ctx := context.Background()
 	for id, want := range map[string]error{
@@ -171,7 +175,10 @@ func TestResumeRefusals(t *testing.T) {
 		t.Errorf("sem cli: %v", err)
 	}
 	// Terminal configurado inválido.
-	e.cfg.Update(func(c *config.Config) error { c.Terminal = terminal.Config{Path: "/nao/existe"}; return nil })
+	e.cfg.Update(func(c *config.Config) error {
+		c.Terminal = terminal.Config{Path: providertest.Abs("nao", "existe")}
+		return nil
+	})
 	if _, err := e.svc.Resume(ctx, "claude:"+claudeID, true); !errors.Is(err, terminal.ErrInvalidTerminal) {
 		t.Errorf("terminal: %v", err)
 	}
@@ -187,6 +194,7 @@ func TestResumeRefusals(t *testing.T) {
 
 // Fonte alterada há pouco: pede confirmação antes de abrir.
 func TestResumeActiveSessionNeedsConfirmation(t *testing.T) {
+	skipLinuxTerminal(t)
 	e := newResumeEnv(t)
 	ctx := context.Background()
 	os.Chtimes(e.src, e.now.Add(-10*time.Second), e.now.Add(-10*time.Second))
@@ -297,5 +305,14 @@ func TestResumeDarwinNoTerminalIsCopyOnly(t *testing.T) {
 	}
 	if _, err := svc.Resume(context.Background(), "claude:"+claudeID, true); !errors.Is(err, ErrCopyOnly) || len(e.launcher.calls) != 0 {
 		t.Errorf("Resume: %v, chamadas %d", err, len(e.launcher.calls))
+	}
+}
+
+// skipLinuxTerminal: estes testes usam a detecção de terminal do Linux
+// (bit de execução), que não existe no Windows; lá valem os testes
+// TestResumeWindows*.
+func skipLinuxTerminal(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("detecção de terminal do Linux; no Windows ver TestResumeWindows*")
 	}
 }

@@ -17,7 +17,7 @@ import (
 
 // Erros de validação das configurações exibidos ao usuário.
 var (
-	ErrPathNotAbsolute = errors.New("informe um caminho absoluto (começando com /)")
+	ErrPathNotAbsolute = errors.New("informe um caminho absoluto (completo)")
 	ErrNotExecutable   = errors.New("o arquivo não existe ou não é executável")
 	ErrNotDirectory    = errors.New("o diretório não existe")
 )
@@ -110,7 +110,7 @@ func (s *SettingsService) SetCLIPath(_ context.Context, id domain.ProviderID, pa
 		if !filepath.IsAbs(path) {
 			return ErrPathNotAbsolute
 		}
-		if info, err := os.Stat(path); err != nil || !info.Mode().IsRegular() || info.Mode().Perm()&0o111 == 0 {
+		if !provider.IsCLIFile(path) {
 			return ErrNotExecutable
 		}
 		path = filepath.Clean(path)

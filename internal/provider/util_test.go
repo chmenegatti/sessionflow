@@ -4,6 +4,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"runtime"
 	"testing"
 	"time"
 )
@@ -11,11 +12,15 @@ import (
 func TestFindCLI(t *testing.T) {
 	dir := t.TempDir()
 	exe := filepath.Join(dir, "tool")
+	if runtime.GOOS == "windows" {
+		exe += ".exe" // só .exe é executável no Windows
+	}
 	os.WriteFile(exe, []byte("#!/bin/sh\n"), 0o755)
 	plain := filepath.Join(dir, "plain")
 	os.WriteFile(plain, nil, 0o644)
 	notFound := func(string) (string, error) { return "", errors.New("não") }
-	inPath := func(string) (string, error) { return "/usr/bin/tool", nil }
+	inPathTool := filepath.Join(dir, "path-tool")
+	inPath := func(string) (string, error) { return inPathTool, nil }
 
 	cases := []struct {
 		name, configured, want string
@@ -24,7 +29,7 @@ func TestFindCLI(t *testing.T) {
 	}{
 		{"configurado vence", exe, exe, inPath, nil},
 		{"configurado não executável", plain, "", inPath, nil},
-		{"PATH", "", "/usr/bin/tool", inPath, []string{exe}},
+		{"PATH", "", inPathTool, inPath, []string{exe}},
 		{"candidato", "", exe, notFound, []string{"relativo/tool", plain, exe}},
 		{"nada", "", "", notFound, []string{plain}},
 	}

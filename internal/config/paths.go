@@ -59,10 +59,10 @@ func ResolvePaths(goos string, env Env, home string) (Paths, error) {
 		}, nil
 	}
 	xdg := func(key, fallback string) string {
-		if v := env(key); filepath.IsAbs(v) {
-			return filepath.Join(v, appDirName)
+		if v := env(key); IsAbsOS(goos, v) {
+			return JoinOS(goos, v, appDirName)
 		}
-		return filepath.Join(home, fallback, appDirName)
+		return JoinOS(goos, home, fallback, appDirName)
 	}
 	return Paths{
 		ConfigDir: xdg("XDG_CONFIG_HOME", ".config"),

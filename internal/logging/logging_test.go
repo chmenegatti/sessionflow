@@ -6,6 +6,7 @@ import (
 	"log/slog"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 )
@@ -33,7 +34,7 @@ func TestFileIsJSONAndRespectsLevel(t *testing.T) {
 		t.Errorf("registro: %v", rec)
 	}
 	info, _ := os.Stat(path)
-	if info.Mode().Perm() != 0o600 {
+	if runtime.GOOS != "windows" && info.Mode().Perm() != 0o600 { // Windows: sem bits de modo (ACL do perfil)
 		t.Errorf("permissão %v", info.Mode().Perm())
 	}
 }

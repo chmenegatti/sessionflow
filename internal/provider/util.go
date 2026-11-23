@@ -43,18 +43,30 @@ func FindCLI(configured, name string, look LookPath, candidates ...string) strin
 	return ""
 }
 
-func isExecutable(p string) bool {
+func isExecutable(p string) bool { return IsCLIFile(p) }
+
+// IsCLIFile: p é um arquivo que pode ser a CLI de um agente neste sistema.
+// No Windows, .exe e também os scripts .cmd/.bat/.ps1 que o npm instala
+// (encontrados, mas a retomada só abre .exe: o resto exige shell); nos
+// outros, arquivo com bit de execução.
+func IsCLIFile(p string) bool {
 	info, err := os.Stat(p)
-	if err != nil || !info.Mode().IsRegular() || !executableName(runtime.GOOS, p) {
+	if err != nil || !info.Mode().IsRegular() || !cliName(runtime.GOOS, p) {
 		return false
 	}
 	return runtime.GOOS == "windows" || info.Mode().Perm()&0o111 != 0
 }
 
-// executableName: no Windows só .exe roda sem shell (.cmd, .bat e .ps1
-// precisam de cmd.exe ou PowerShell, regra 8 do CLAUDE.md).
-func executableName(goos, p string) bool {
-	return goos != "windows" || strings.EqualFold(filepath.Ext(p), ".exe")
+// cliName: extensões aceitas como CLI no sistema goos.
+func cliName(goos, p string) bool {
+	if goos != "windows" {
+		return true
+	}
+	switch strings.ToLower(filepath.Ext(p)) {
+	case ".exe", ".cmd", ".bat", ".ps1":
+		return true
+	}
+	return false
 }
 
 // CLICandidates: onde a CLI do provider costuma ficar fora do PATH, no

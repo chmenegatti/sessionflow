@@ -30,17 +30,18 @@ func TestCLICandidatesByOS(t *testing.T) {
 	}
 }
 
-// No Windows só .exe é executável para o SessionFlow: .cmd e .ps1 exigem shell.
-func TestIsExecutableNameWindows(t *testing.T) {
+// No Windows a CLI pode ser .exe ou script do npm (.cmd/.bat/.ps1): é
+// encontrada, e a retomada decide se abre (só .exe) ou oferece copiar.
+func TestCLINameWindows(t *testing.T) {
 	for name, want := range map[string]bool{
-		`C:\x\claude.exe`: true, `C:\x\CLAUDE.EXE`: true,
-		`C:\x\codex.cmd`: false, `C:\x\codex.ps1`: false, `C:\x\codex.bat`: false, `C:\x\codex`: false,
+		`C:\x\claude.exe`: true, `C:\x\CLAUDE.EXE`: true, `C:\x\codex.cmd`: true, `C:\x\codex.ps1`: true, `C:\x\codex.bat`: true,
+		`C:\x\codex`: false, `C:\x\codex.txt`: false,
 	} {
-		if got := executableName("windows", name); got != want {
+		if got := cliName("windows", name); got != want {
 			t.Errorf("%s: %v, quer %v", name, got, want)
 		}
 	}
-	if !executableName("linux", "/usr/bin/codex") {
+	if !cliName("linux", "/usr/bin/codex") {
 		t.Error("linux: nome sem extensão recusado")
 	}
 }

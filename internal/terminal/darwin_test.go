@@ -11,6 +11,7 @@ import (
 // macOS: emuladores que aceitam argv direto, no PATH ou como .app em
 // /Applications; o Terminal.app não entra (exigiria AppleScript ou shell).
 func TestResolveDarwinFindsAppBundle(t *testing.T) {
+	skipExecBits(t)
 	apps := t.TempDir()
 	old := macAppDirs
 	macAppDirs = []string{apps}
@@ -26,6 +27,7 @@ func TestResolveDarwinFindsAppBundle(t *testing.T) {
 }
 
 func TestResolveDarwinPrefersPATH(t *testing.T) {
+	skipExecBits(t)
 	wez := exe(t, t.TempDir(), "wezterm", "")
 	look := func(n string) (string, error) {
 		if n == "wezterm" {
@@ -42,6 +44,7 @@ func TestResolveDarwinPrefersPATH(t *testing.T) {
 }
 
 func TestResolveDarwinNone(t *testing.T) {
+	skipExecBits(t)
 	old := macAppDirs
 	macAppDirs = []string{t.TempDir()}
 	t.Cleanup(func() { macAppDirs = old })

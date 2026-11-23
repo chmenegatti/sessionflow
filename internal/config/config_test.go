@@ -4,6 +4,8 @@ import (
 	"log/slog"
 	"os"
 	"path/filepath"
+	"runtime"
+	"strconv"
 	"strings"
 	"testing"
 
@@ -26,10 +28,10 @@ func TestResolvePathsDefaults(t *testing.T) {
 	if p != want {
 		t.Fatalf("got %+v", p)
 	}
-	if p.IndexDB() != "/home/u/.local/share/sessionflow/index.db" || p.UserDB() != "/home/u/.local/share/sessionflow/user.db" {
+	if p.IndexDB() != filepath.Join(p.DataDir, "index.db") || p.UserDB() != filepath.Join(p.DataDir, "user.db") {
 		t.Errorf("bancos: %s %s", p.IndexDB(), p.UserDB())
 	}
-	if p.ConfigFile() != "/home/u/.config/sessionflow/config.json" || p.LogFile() != "/home/u/.local/state/sessionflow/sessionflow.log" {
+	if p.ConfigFile() != filepath.Join(p.ConfigDir, "config.json") || p.LogFile() != filepath.Join(p.StateDir, "sessionflow.log") {
 		t.Errorf("arquivos: %s %s", p.ConfigFile(), p.LogFile())
 	}
 }
@@ -89,7 +91,7 @@ func TestSaveLoadRoundTrip(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "sub", "config.json")
 	c := Default()
 	c.LogLevel = "debug"
-	c.Providers[domain.ProviderOpenCode] = ProviderConfig{Enabled: false, RootDir: "/custom/oc", CLIPath: "/usr/bin/opencode"}
+	c.Providers[domain.ProviderOpenCode] = ProviderConfig{Enabled: false, RootDir: hostAbs("custom", "oc"), CLIPath: hostAbs("bin", "opencode")}
 	if err := Save(path, c); err != nil {
 		t.Fatal(err)
 	}
@@ -97,7 +99,7 @@ func TestSaveLoadRoundTrip(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if info.Mode().Perm() != 0o600 {
+	if runtime.GOOS != "windows" && info.Mode().Perm() != 0o600 { // Windows: proteção pelo perfil do usuário (ACL), sem bits de modo
 		t.Errorf("permissão %v", info.Mode().Perm())
 	}
 	got, err := Load(path)
@@ -161,7 +163,7 @@ func TestLoadToleratesNullAndPartialProviders(t *testing.T) {
 	cases := map[string]string{
 		"providers null": `{"logLevel":"info","providers":null}`,
 		"sem providers":  `{"logLevel":"info"}`,
-		"só rootDir":     `{"logLevel":"info","providers":{"claude":{"rootDir":"/x"}}}`,
+		"só rootDir":     `{"logLevel":"info","providers":{"claude":{"rootDir":` + strconv.Quote(hostAbs("x")) + `}}}`,
 		"objeto vazio":   `{}`,
 		"provider vazio": `{"providers":{"codex":{}}}`,
 	}
@@ -234,4 +236,9 @@ func TestDefaultProviderRootByOS(t *testing.T) {
 			t.Errorf("%s %s %v: got %q quer %q", c.goos, c.p, c.env, got, c.want)
 		}
 	}
+}
+
+// hostAbs: caminho absoluto válido no sistema que roda o teste.
+func hostAbs(parts ...string) string {
+	return filepath.Join(append([]string{filepath.VolumeName(os.TempDir()) + string(filepath.Separator)}, parts...)...)
 }

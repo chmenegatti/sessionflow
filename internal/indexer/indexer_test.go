@@ -8,6 +8,7 @@ import (
 	"log/slog"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 	"time"
@@ -218,6 +219,9 @@ func TestIndexMirrorsDeletedSources(t *testing.T) {
 
 // Parse com erro mantém a leitura anterior da fonte e não para os outros.
 func TestFailedSourceKeepsPreviousData(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("chmod não bloqueia leitura no Windows (só marca somente leitura)")
+	}
 	e := setup(t)
 	e.run(t)
 	// Rollout reescrito sem ID e com nome fora do padrão não existe aqui;
@@ -257,6 +261,9 @@ func TestFailedSourceKeepsPreviousData(t *testing.T) {
 
 // Diretório ilegível não pode apagar as sessões dele do índice.
 func TestIncompleteListingKeepsSessions(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("chmod não bloqueia leitura no Windows (só marca somente leitura)")
+	}
 	if os.Getuid() == 0 {
 		t.Skip("root ignora permissões")
 	}

@@ -82,7 +82,11 @@ func check(w io.Writer) int {
 	if t, err := terminal.Resolve(runtime.GOOS, cfg.Terminal, exec.LookPath); err != nil {
 		fmt.Fprintln(w, "Terminal: —", err)
 	} else {
-		fmt.Fprintln(w, "Terminal:", t.Path)
+		if t.Console {
+			fmt.Fprintln(w, "Terminal: console (janela nova; Windows Terminal não encontrado)")
+		} else {
+			fmt.Fprintln(w, "Terminal:", t.Path)
+		}
 	}
 	return 0
 }

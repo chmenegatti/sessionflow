@@ -8,6 +8,7 @@ import (
 	"log/slog"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 	"testing/fstest"
@@ -54,7 +55,7 @@ func TestOpenIndexCreatesSchema(t *testing.T) {
 	if count(t, db, "PRAGMA foreign_keys") != 1 {
 		t.Error("foreign_keys desligado")
 	}
-	if info, _ := os.Stat(path); info.Mode().Perm() != 0o600 {
+	if info, _ := os.Stat(path); runtime.GOOS != "windows" && info.Mode().Perm() != 0o600 { // Windows: sem bits de modo (ACL do perfil)
 		t.Errorf("permissão %v", info.Mode().Perm())
 	}
 }
@@ -294,7 +295,11 @@ func TestMigrationFailureRollsBack(t *testing.T) {
 // Caracteres com significado em URI ("?", "#", "%") no caminho não podem
 // desviar o banco para outro arquivo.
 func TestOpenHandlesURICharsInPath(t *testing.T) {
-	for _, dir := range []string{"a?b", "a#b", "a%20b", "a b"} {
+	dirs := []string{"a?b", "a#b", "a%20b", "a b"}
+	if runtime.GOOS == "windows" {
+		dirs = dirs[1:] // "?" não é permitido em nomes de arquivo do Windows
+	}
+	for _, dir := range dirs {
 		t.Run(dir, func(t *testing.T) {
 			base := t.TempDir()
 			path := filepath.Join(base, dir, "index.db")
