@@ -7,10 +7,12 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"runtime"
 	"strings"
 	"time"
 	"unicode/utf8"
 
+	"sessionflow/internal/config"
 	"sessionflow/internal/domain"
 )
 
@@ -43,7 +45,41 @@ func FindCLI(configured, name string, look LookPath, candidates ...string) strin
 
 func isExecutable(p string) bool {
 	info, err := os.Stat(p)
-	return err == nil && info.Mode().IsRegular() && info.Mode().Perm()&0o111 != 0
+	if err != nil || !info.Mode().IsRegular() || !executableName(runtime.GOOS, p) {
+		return false
+	}
+	return runtime.GOOS == "windows" || info.Mode().Perm()&0o111 != 0
+}
+
+// executableName: no Windows só .exe roda sem shell (.cmd, .bat e .ps1
+// precisam de cmd.exe ou PowerShell, regra 8 do CLAUDE.md).
+func executableName(goos, p string) bool {
+	return goos != "windows" || strings.EqualFold(filepath.Ext(p), ".exe")
+}
+
+// CLICandidates: onde a CLI do provider costuma ficar fora do PATH, no
+// sistema goos (docs/PROVIDERS.md, "Windows e macOS").
+func CLICandidates(goos string, p domain.ProviderID, home string) []string {
+	j := func(parts ...string) string { return config.JoinOS(goos, append([]string{home}, parts...)...) }
+	switch {
+	case p == domain.ProviderClaude && goos == "windows":
+		return []string{j(".local", "bin", "claude.exe")}
+	case p == domain.ProviderClaude:
+		return []string{j(".local", "bin", "claude"), j(".claude", "local", "claude")}
+	case p == domain.ProviderCodex && goos == "windows":
+		return nil // instalador e npm: só pelo PATH (sem fonte oficial do local)
+	case p == domain.ProviderCodex && goos == "darwin":
+		return []string{j(".local", "bin", "codex"), "/opt/homebrew/bin/codex", "/usr/local/bin/codex"}
+	case p == domain.ProviderCodex:
+		return []string{j(".local", "bin", "codex")}
+	case p == domain.ProviderOpenCode && goos == "windows":
+		return []string{j(".opencode", "bin", "opencode.exe")}
+	case p == domain.ProviderOpenCode && goos == "darwin":
+		return []string{j(".opencode", "bin", "opencode"), j(".local", "bin", "opencode"), "/opt/homebrew/bin/opencode"}
+	case p == domain.ProviderOpenCode:
+		return []string{j(".opencode", "bin", "opencode"), j(".local", "bin", "opencode")}
+	}
+	return nil
 }
 
 // IsDir informa se p existe e é diretório.

@@ -69,7 +69,7 @@ func TestDefaultProviderRoot(t *testing.T) {
 		{domain.ProviderOpenCode, map[string]string{"XDG_DATA_HOME": "/d"}, "/d/opencode"},
 	}
 	for _, c := range cases {
-		if got := DefaultProviderRoot(c.p, envOf(c.env), home); got != c.want {
+		if got := DefaultProviderRoot("linux", c.p, envOf(c.env), home); got != c.want {
 			t.Errorf("%s %v: got %q quer %q", c.p, c.env, got, c.want)
 		}
 	}
@@ -209,6 +209,29 @@ func TestLoadCurrencyHandEdited(t *testing.T) {
 		c, err := Load(p)
 		if err != nil || c.DefaultCurrency != want || c.LogLevel != "debug" {
 			t.Errorf("%s → %q, log %q, %v", in, c.DefaultCurrency, c.LogLevel, err)
+		}
+	}
+}
+
+func TestDefaultProviderRootByOS(t *testing.T) {
+	for _, c := range []struct {
+		goos, home string
+		p          domain.ProviderID
+		env        map[string]string
+		want       string
+	}{
+		{"windows", `C:\Users\José Silva`, domain.ProviderClaude, nil, `C:\Users\José Silva\.claude`},
+		{"windows", `C:\Users\ana`, domain.ProviderClaude, map[string]string{"CLAUDE_CONFIG_DIR": `D:\claude`}, `D:\claude`},
+		{"windows", `C:\Users\ana`, domain.ProviderCodex, nil, `C:\Users\ana\.codex`},
+		{"windows", `C:\Users\ana`, domain.ProviderCodex, map[string]string{"CODEX_HOME": "rel"}, `C:\Users\ana\.codex`},
+		{"windows", `C:\Users\ana`, domain.ProviderOpenCode, nil, `C:\Users\ana\.local\share\opencode`},
+		{"windows", `C:\Users\ana`, domain.ProviderOpenCode, map[string]string{"XDG_DATA_HOME": `E:\dados`}, `E:\dados\opencode`},
+		{"darwin", "/Users/ana", domain.ProviderClaude, nil, "/Users/ana/.claude"},
+		{"darwin", "/Users/ana", domain.ProviderCodex, nil, "/Users/ana/.codex"},
+		{"darwin", "/Users/ana", domain.ProviderOpenCode, nil, "/Users/ana/.local/share/opencode"},
+	} {
+		if got := DefaultProviderRoot(c.goos, c.p, envOf(c.env), c.home); got != c.want {
+			t.Errorf("%s %s %v: got %q quer %q", c.goos, c.p, c.env, got, c.want)
 		}
 	}
 }

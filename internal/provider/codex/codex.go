@@ -19,6 +19,7 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"time"
 
@@ -441,7 +442,7 @@ func (p *parser) session() domain.Session {
 
 // CLI procura o executável codex (configurado, PATH, ~/.local/bin).
 func (a *Adapter) CLI(configured string) string {
-	return provider.FindCLI(configured, "codex", a.o.LookPath, filepath.Join(a.o.Home, ".local", "bin", "codex"))
+	return provider.FindCLI(configured, "codex", a.o.LookPath, provider.CLICandidates(runtime.GOOS, domain.ProviderCodex, a.o.Home)...)
 }
 
 // ResumeArgs: codex resume <uuid>. O UUID tem precedência sobre nomes de

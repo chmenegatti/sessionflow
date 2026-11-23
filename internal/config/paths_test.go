@@ -5,8 +5,8 @@ import "testing"
 // Pastas da aplicação por sistema (design 0.2.0).
 func TestResolvePathsByOS(t *testing.T) {
 	winEnv := map[string]string{
-		"APPDATA":      `C:\Users\José Silva\AppData\Roaming`,
-		"LOCALAPPDATA": `C:\Users\José Silva\AppData\Local`,
+		"APPDATA":       `C:\Users\José Silva\AppData\Roaming`,
+		"LOCALAPPDATA":  `C:\Users\José Silva\AppData\Local`,
 		"XDG_DATA_HOME": "/ignorado",
 	}
 	for _, tc := range []struct {

@@ -5,6 +5,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"runtime"
 	"slices"
 	"strings"
 
@@ -80,7 +81,7 @@ func (s *SettingsService) Get(context.Context) SettingsView {
 		pc, old := cfg.Providers[id], s.startup.Providers[id]
 		ps := ProviderSettings{
 			ID: id, Name: id.DisplayName(), Enabled: pc.Enabled, RootDir: pc.RootDir, CLIPath: pc.CLIPath,
-			DefaultRoot: config.DefaultProviderRoot(id, s.env.Env, s.env.Home),
+			DefaultRoot: config.DefaultProviderRoot(runtime.GOOS, id, s.env.Env, s.env.Home),
 		}
 		if r, ok := s.resumers[id]; ok {
 			ps.DetectedCLI = r.CLI(pc.CLIPath)
