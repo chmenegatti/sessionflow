@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"io/fs"
 	"os"
+	"path"
 	"path/filepath"
 	"runtime"
 	"slices"
@@ -330,13 +331,13 @@ func childEnv(goos string, env []string, cli string) []string {
 			break
 		}
 	}
-	var path []string
-	for _, d := range append([]string{filepath.Dir(cli), "/opt/homebrew/bin", "/usr/local/bin"}, cur...) {
-		if d != "" && !slices.Contains(path, d) {
-			path = append(path, d)
+	var dirs []string
+	for _, d := range append([]string{path.Dir(cli), "/opt/homebrew/bin", "/usr/local/bin"}, cur...) {
+		if d != "" && !slices.Contains(dirs, d) {
+			dirs = append(dirs, d)
 		}
 	}
-	kv := "PATH=" + strings.Join(path, ":")
+	kv := "PATH=" + strings.Join(dirs, ":")
 	if idx < 0 {
 		return append(out, kv)
 	}
