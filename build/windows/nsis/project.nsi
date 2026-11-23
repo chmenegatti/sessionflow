@@ -31,9 +31,17 @@ Unicode true
 ## !define REQUEST_EXECUTION_LEVEL "admin"            # Default "admin"  see also https://nsis.sourceforge.io/Docs/Chapter4.html
 ## !define WAILS_INSTALL_SCOPE     "user"             # Default "machine" - set to "user" for per-user install ($LOCALAPPDATA) without UAC prompt
 ####
+## SessionFlow (design 0.2.0): instalação por usuário, sem UAC, em
+## $LOCALAPPDATA\Programs\SessionFlow; chave de desinstalação em
+## HKCU\...\Uninstall\SessionFlow. A versão vem do build (-DINFO_PRODUCTVERSION).
+!define WAILS_INSTALL_SCOPE "user"
+!define UNINST_KEY_NAME "SessionFlow"
+####
 ## Include the wails tools
 ####
 !include "wails_tools.nsh"
+!include "FileFunc.nsh"
+!include "LogicLib.nsh"
 
 # The version information for this two must consist of 4 parts
 VIProductVersion "${INFO_PRODUCTVERSION}.0"
@@ -100,6 +108,14 @@ Section
     !insertmacro wails.associateCustomProtocols
     
     !insertmacro wails.writeUninstaller
+
+    # Atualização silenciosa (setup.exe /S /RELAUNCH): abre o app de novo ao fim.
+    ${GetParameters} $R0
+    ClearErrors
+    ${GetOptions} $R0 "/RELAUNCH" $R1
+    ${IfNot} ${Errors}
+        Exec '"$INSTDIR\${PRODUCT_EXECUTABLE}"'
+    ${EndIf}
 SectionEnd
 
 Section "uninstall" 

@@ -1,51 +1,133 @@
-# Release: ao enviar uma tag vX.Y.Z (igual ao arquivo VERSION), gera
-# AppImage, .deb, .rpm e tar.gz e publica um GitHub Release com
-# SHA256SUMS e as notas da versão tiradas do CHANGELOG.md.
+# Release: ao enviar uma tag vX.Y.Z (igual ao arquivo VERSION) ou
+# vX.Y.Z-rc.N (pre-release de teste), gera os pacotes dos três sistemas e
+# publica um GitHub Release com SHA256SUMS e as notas da versão tiradas do
+# CHANGELOG.md. Disparo manual e PR que mexe no empacotamento só geram os
+# pacotes, como artefatos, sem publicar.
+#   Linux:   AppImage, .deb, .rpm, tar.gz (contêiner Ubuntu 24.04)
+#   Windows: instalador NSIS por usuário e .zip portátil
+#   macOS:   .dmg universal e .zip do .app (assinatura ad-hoc)
 name: release
 on:
   push:
     tags: ["v*"]
+  workflow_dispatch:
+  # PR que mexe no empacotamento: gera e verifica os pacotes, sem publicar.
+  pull_request:
+    paths: ["packaging/**", "build/**", ".github/workflows/release.yml"]
 
 permissions:
   contents: write
 
 jobs:
-  packages:
+  check:
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
       - name: Tag confere com VERSION
-        run: test "v$(cat VERSION)" = "$GITHUB_REF_NAME"
+        if: github.event_name == 'push'
+        run: |
+          v=$(tr -d '[:space:]' < VERSION)
+          case "${GITHUB_REF_NAME#v}" in
+            "$v"|"$v"-rc.[0-9]*) ;;
+            *) echo "tag $GITHUB_REF_NAME não confere com VERSION $v"; exit 1 ;;
+          esac
+
+  linux:
+    needs: check
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
       - name: Build de release (contêiner Ubuntu 24.04)
         run: make release
       - name: Testes de instalação em contêineres limpos
         run: make test-install
       - uses: actions/upload-artifact@v4
         with:
-          name: dist
+          name: dist-linux
           path: |
             dist/*.AppImage
             dist/*.deb
             dist/*.rpm
             dist/*.tar.gz
-            dist/test/
+          if-no-files-found: error
+
+  windows:
+    needs: check
+    runs-on: windows-latest
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - run: go install github.com/wailsapp/wails/v3/cmd/wails3@v3.1.0
+      - name: Bindings e frontend
+        run: |
+          wails3 generate bindings -f '-tags production' -clean=true -ts -i
+          cd frontend && npm ci && npm run build
+      - name: Instalador e portátil (com verificação)
+        run: packaging/scripts/windows-package.sh
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dist-windows
+          path: |
+            dist/*-windows-amd64-setup.exe
+            dist/*-windows-amd64-portable.zip
+          if-no-files-found: error
+
+  macos:
+    needs: check
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - run: go install github.com/wailsapp/wails/v3/cmd/wails3@v3.1.0
+      - name: Bindings e frontend
+        run: |
+          wails3 generate bindings -f '-tags production' -clean=true -ts -i
+          cd frontend && npm ci && npm run build
+      - name: App universal, .dmg e .zip (com verificação)
+        run: packaging/scripts/macos-package.sh
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dist-macos
+          path: |
+            dist/*-macos-universal.dmg
+            dist/*-macos-universal.zip
+          if-no-files-found: error
 
   publish:
-    needs: packages
+    if: github.event_name == 'push'
+    needs: [linux, windows, macos]
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
       - uses: actions/download-artifact@v4
         with:
-          path: artifacts
+          path: out
           merge-multiple: true
       - name: Checksums e notas
         run: |
-          mkdir out
-          cp artifacts/*.AppImage artifacts/*.deb artifacts/*.rpm artifacts/*.tar.gz out/
-          (cd out && sha256sum -- * > SHA256SUMS)
+          (cd out && sha256sum -- * > SHA256SUMS && cat SHA256SUMS)
           packaging/scripts/release-notes.sh "$(cat VERSION)" > notes.md
       - name: GitHub Release
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh release create "$GITHUB_REF_NAME" out/* --title "SessionFlow $(cat VERSION)" --notes-file notes.md
+        run: |
+          pre=""
+          case "$GITHUB_REF_NAME" in *-rc.*) pre="--prerelease" ;; esac
+          gh release create "$GITHUB_REF_NAME" out/* $pre --title "SessionFlow ${GITHUB_REF_NAME#v}" --notes-file notes.md
