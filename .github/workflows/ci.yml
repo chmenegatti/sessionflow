@@ -34,6 +34,10 @@ jobs:
           cd frontend && npm ci && npm run typecheck && npm test && npm run build
       - run: go vet ./...
       - run: go test -race ./...
+      - name: Autoteste do binário
+        run: |
+          go build -tags production -o bin/sessionflow .
+          ./bin/sessionflow --selftest
 
   # Windows e macOS: testes Go e o build do app no próprio sistema (WebView2
   # e WKWebView só compilam ali). O frontend é o mesmo do Linux.
@@ -71,3 +75,5 @@ jobs:
           exe=$(find bin -maxdepth 4 -type f \( -iname 'sessionflow' -o -iname 'sessionflow.exe' \) | head -1)
           "$exe" --version | tee version.txt
           grep -q "SessionFlow" version.txt
+          "$exe" --selftest | tee selftest.txt
+          grep -q "SELFTEST OK" selftest.txt

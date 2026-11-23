@@ -25,6 +25,7 @@ Sem opção, abre o SessionFlow.
   --check     diagnóstico (caminhos, providers, CLIs, terminal) sem abrir a janela
   --test-terminal DIR CMD [ARGS...]
               abre o terminal configurado rodando CMD em DIR, como a retomada faz
+  --selftest  verifica o app sem janela (bancos e indexação com dados de exemplo, num diretório temporário)
   --version   mostra a versão
   --help      mostra esta ajuda
 `
@@ -32,6 +33,8 @@ Sem opção, abre o SessionFlow.
 func main() {
 	if len(os.Args) > 1 {
 		switch os.Args[1] {
+		case "--selftest":
+			os.Exit(selftest(os.Stdout, selftestFixtures))
 		case "--version", "-v":
 			fmt.Println("SessionFlow", version)
 			return
