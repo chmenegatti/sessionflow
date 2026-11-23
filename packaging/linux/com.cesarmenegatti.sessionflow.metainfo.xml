@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<component type="desktop-application">
+  <id>com.cesarmenegatti.sessionflow</id>
+  <name>SessionFlow</name>
+  <summary>Gerenciador de sessões de agentes de programação</summary>
+  <metadata_license>CC0-1.0</metadata_license>
+  <project_license>MIT</project_license>
+  <developer id="com.cesarmenegatti">
+    <name>Cesar Menegatti</name>
+  </developer>
+  <description>
+    <p>
+      O SessionFlow reúne os históricos locais do Claude Code, do OpenAI Codex e do OpenCode numa
+      única interface: liste, agrupe por projeto, favorite, marque com tags, leia as conversas,
+      pesquise o conteúdo e retome qualquer sessão na CLI original.
+    </p>
+    <p>
+      Funciona offline e só lê os históricos: nada é enviado para fora da máquina.
+    </p>
+  </description>
+  <url type="homepage">https://github.com/chmenegatti/sessionflow</url>
+  <launchable type="desktop-id">com.cesarmenegatti.sessionflow.desktop</launchable>
+  <provides>
+    <binary>sessionflow</binary>
+  </provides>
+  <categories>
+    <category>Development</category>
+  </categories>
+  <content_rating type="oars-1.1"/>
+  <releases>
+    <release version="0.1.0" date="2026-11-22">
+      <description>
+        <p>Primeira versão: dashboard, sessões, projetos, favoritos, tags, viewer, busca global, retomada pela CLI e sincronização automática.</p>
+      </description>
+    </release>
+  </releases>
+</component>

@@ -1,0 +1,232 @@
+// Package terminal abre comandos interativos (a retomada de uma sessão) num
+// emulador de terminal. Nada passa por shell: o emulador recebe o
+// executável e os argumentos como itens separados do argv, e cada emulador
+// conhecido tem a sintaxe dele para "rode este argv neste diretório".
+package terminal
+
+import (
+	"context"
+	"errors"
+	"fmt"
+	"os"
+	"path/filepath"
+	"slices"
+	"strings"
+
+	"sessionflow/internal/host"
+)
+
+// Command é um processo a abrir no terminal. Path é absoluto; Args vêm
+// depois dele no argv; Dir é o diretório de trabalho (absoluto).
+type Command struct {
+	Path string   `json:"path"`
+	Args []string `json:"args"`
+	Dir  string   `json:"dir"`
+}
+
+// Argv devolve o argv completo do comando (Path + Args).
+func (c Command) Argv() []string { return append([]string{c.Path}, c.Args...) }
+
+// Placeholders aceitos em Config.Args de um terminal personalizado.
+const (
+	PlaceholderDir = "{dir}" // diretório de trabalho (um item do argv)
+	PlaceholderCmd = "{cmd}" // executável + argumentos (vários itens do argv)
+)
+
+// Config escolhe o emulador. Vazio = detectar. Path absoluto; Args
+// opcionais com {dir} e {cmd}: sem Args, um emulador conhecido usa a
+// sintaxe dele e um desconhecido recebe "-e {cmd}".
+type Config struct {
+	Path string   `json:"path,omitempty"`
+	Args []string `json:"args,omitempty"`
+}
+
+// known: argumentos de cada emulador, por nome do executável. Ordem de
+// detecção = ordem de autoDetect. Sintaxes conferidas no --help de cada um
+// (ptyxis 48, gnome-terminal 3.56; demais pela documentação, ver
+// docs/PROVIDERS.md §Retomada).
+var known = map[string][]string{
+	"ptyxis":              {"--new-window", "--working-directory", PlaceholderDir, "--", PlaceholderCmd},
+	"gnome-terminal":      {"--window", "--working-directory", PlaceholderDir, "--", PlaceholderCmd},
+	"kgx":                 {"--working-directory", PlaceholderDir, "--", PlaceholderCmd},
+	"konsole":             {"--workdir", PlaceholderDir, "-e", PlaceholderCmd},
+	"kitty":               {"--directory", PlaceholderDir, PlaceholderCmd},
+	"alacritty":           {"--working-directory", PlaceholderDir, "-e", PlaceholderCmd},
+	"wezterm":             {"start", "--cwd", PlaceholderDir, "--", PlaceholderCmd},
+	"foot":                {"--working-directory", PlaceholderDir, PlaceholderCmd},
+	"ghostty":             {"--working-directory=" + PlaceholderDir, "-e", PlaceholderCmd},
+	"xfce4-terminal":      {"--working-directory", PlaceholderDir, "-x", PlaceholderCmd},
+	"xterm":               {"-e", PlaceholderCmd},
+	"x-terminal-emulator": {"-e", PlaceholderCmd},
+}
+
+// expandsVars: emuladores que expandem $VAR nos argumentos do comando
+// (medido: ptyxis 48 troca "$HOME" por /home/…, e "$(x)" e "$" somem; nada
+// é executado). Com eles, argumento ou diretório com "$" é recusado.
+var expandsVars = map[string]bool{"ptyxis": true}
+
+// autoDetect é a ordem de procura quando nada foi configurado: terminais
+// do GNOME e KDE primeiro, x-terminal-emulator por último (é um wrapper
+// cuja tradução de -e varia por distribuição). tilix fica de fora: o -e
+// dele recebe uma única string e a divide, o que exigiria montar e escapar
+// uma linha de comando.
+var autoDetect = []string{
+	"ptyxis", "gnome-terminal", "kgx", "konsole", "kitty", "alacritty", "wezterm",
+	"foot", "ghostty", "xfce4-terminal", "xterm", "x-terminal-emulator",
+}
+
+// Erros exibidos ao usuário.
+var (
+	ErrNoTerminal      = errors.New("nenhum emulador de terminal encontrado; configure um em Configurações")
+	ErrInvalidTerminal = errors.New("terminal configurado não existe ou não é executável")
+	ErrInvalidTemplate = errors.New("argumentos do terminal precisam conter {cmd} exatamente uma vez")
+	ErrDollarMangled   = errors.New("este terminal expande \"$\" nos argumentos e o caminho ou comando contém \"$\"; escolha outro terminal em Configurações")
+)
+
+// LookPath encontra um executável no PATH (exec.LookPath em produção).
+type LookPath func(string) (string, error)
+
+// Terminal é um emulador resolvido.
+type Terminal struct {
+	Path string   `json:"path"`
+	Args []string `json:"args"` // modelo com {dir}/{cmd}
+}
+
+// Name é o nome do executável (para exibição).
+func (t Terminal) Name() string { return filepath.Base(t.Path) }
+
+// Resolve escolhe o emulador: o configurado (validado) ou o primeiro
+// conhecido encontrado no PATH.
+func Resolve(c Config, look LookPath) (Terminal, error) {
+	if c.Path != "" {
+		if !filepath.IsAbs(c.Path) || !isExecutable(c.Path) {
+			return Terminal{}, ErrInvalidTerminal
+		}
+		args := c.Args
+		if len(args) == 0 {
+			args = known[filepath.Base(c.Path)]
+		}
+		if len(args) == 0 {
+			args = []string{"-e", PlaceholderCmd}
+		}
+		if err := validTemplate(args); err != nil {
+			return Terminal{}, err
+		}
+		return Terminal{Path: c.Path, Args: args}, nil
+	}
+	for _, name := range autoDetect {
+		if p, err := look(name); err == nil && filepath.IsAbs(p) && isExecutable(p) {
+			return Terminal{Path: p, Args: known[name]}, nil
+		}
+	}
+	return Terminal{}, ErrNoTerminal
+}
+
+// CheckArgs valida argumentos configurados (vazio = usar o padrão).
+func CheckArgs(args []string) error {
+	if len(args) == 0 {
+		return nil
+	}
+	return validTemplate(args)
+}
+
+func validTemplate(args []string) error {
+	n := 0
+	for _, a := range args {
+		if a == PlaceholderCmd {
+			n++
+		} else if strings.Contains(a, PlaceholderCmd) {
+			return ErrInvalidTemplate // {cmd} colado a outro texto viraria uma string só
+		}
+	}
+	if n != 1 {
+		return ErrInvalidTemplate
+	}
+	return nil
+}
+
+// Check confere se o emulador entrega cmd sem alterá-lo.
+func (t Terminal) Check(cmd Command) error {
+	if !expandsVars[t.Name()] {
+		return nil
+	}
+	if strings.Contains(cmd.Dir, "$") || slices.ContainsFunc(cmd.Argv(), func(a string) bool { return strings.Contains(a, "$") }) {
+		return ErrDollarMangled
+	}
+	return nil
+}
+
+// Argv monta o argv do emulador para rodar cmd: {cmd} vira o executável e
+// os argumentos (um item cada) e {dir}, o diretório.
+func (t Terminal) Argv(cmd Command) []string {
+	out := []string{t.Path}
+	for _, a := range t.Args {
+		switch {
+		case a == PlaceholderCmd:
+			out = append(out, cmd.Argv()...)
+		case strings.Contains(a, PlaceholderDir):
+			out = append(out, strings.ReplaceAll(a, PlaceholderDir, cmd.Dir))
+		default:
+			out = append(out, a)
+		}
+	}
+	return out
+}
+
+// Launcher abre um comando num terminal. Injetável para testes.
+type Launcher interface {
+	Launch(ctx context.Context, t Terminal, cmd Command) error
+}
+
+// ExecLauncher inicia o emulador com exec direto (sem shell), no diretório
+// do comando, desligado do processo do app: fechar o SessionFlow não fecha
+// a sessão retomada.
+type ExecLauncher struct{}
+
+// Launch inicia o emulador e não espera por ele (o processo é recolhido em
+// segundo plano para não virar zumbi).
+func (ExecLauncher) Launch(_ context.Context, t Terminal, cmd Command) error {
+	if err := cmd.validate(); err != nil {
+		return err
+	}
+	if err := t.Check(cmd); err != nil {
+		return err
+	}
+	// Sem o ambiente injetado pela AppImage.
+	p := host.Current.Command(t.Argv(cmd), cmd.Dir)
+	p.Stdin, p.Stdout, p.Stderr = nil, nil, nil
+	detach(p)
+	if err := p.Start(); err != nil {
+		return fmt.Errorf("abrir %s: %w", t.Name(), err)
+	}
+	go p.Wait() //nolint:errcheck // terminal pode durar mais que a chamada
+	return nil
+}
+
+// validate confere o que o executor exige. Quem monta o comando (provider
+// e ResumeService) já validou; aqui é a última barreira.
+func (c Command) validate() error {
+	if !filepath.IsAbs(c.Path) || !isExecutable(c.Path) {
+		return fmt.Errorf("executável inválido: %s", c.Path)
+	}
+	if !filepath.IsAbs(c.Dir) || !isDir(c.Dir) {
+		return fmt.Errorf("diretório de trabalho inválido: %s", c.Dir)
+	}
+	if slices.Contains(c.Args, "") {
+		return errors.New("argumento vazio")
+	}
+	return nil
+}
+
+func isExecutable(p string) bool {
+	info, err := os.Stat(p)
+	return err == nil && info.Mode().IsRegular() && info.Mode().Perm()&0o111 != 0
+}
+
+func isDir(p string) bool {
+	info, err := os.Stat(p)
+	return err == nil && info.IsDir()
+}
+
+// Known informa se name é um emulador com sintaxe conhecida.
+func Known(name string) bool { _, ok := known[name]; return ok }

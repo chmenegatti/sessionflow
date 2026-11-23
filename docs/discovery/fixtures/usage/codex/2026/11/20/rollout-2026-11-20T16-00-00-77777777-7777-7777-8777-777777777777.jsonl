@@ -1,0 +1,4 @@
+{"timestamp": "2026-11-20T16:00:00.000Z", "type": "session_meta", "payload": {"id": "77777777-7777-7777-8777-777777777777", "timestamp": "2026-11-20T16:00:00.000Z", "cwd": "/home/user/projects/demo-app", "originator": "codex_cli_rs", "cli_version": "0.40.0", "source": "cli"}}
+{"timestamp": "2026-11-20T16:00:01.000Z", "type": "response_item", "payload": {"type": "message", "role": "user", "content": [{"type": "input_text", "text": "Explique o Makefile"}]}}
+{"timestamp": "2026-11-20T16:00:01.000Z", "type": "event_msg", "payload": {"type": "user_message", "message": "Explique o Makefile", "images": []}}
+{"timestamp": "2026-11-20T16:00:02.000Z", "type": "response_item", "payload": {"type": "message", "role": "assistant", "content": [{"type": "output_text", "text": "Ele define alvos de build."}]}}

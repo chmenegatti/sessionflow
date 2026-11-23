@@ -1,0 +1,44 @@
+# Pacotes .deb e .rpm (nfpm, via "wails3 tool package"). Caminhos relativos
+# ao diretório de staging montado por packaging/scripts/build-release.sh.
+name: sessionflow
+arch: amd64
+platform: linux
+version: ${VERSION}
+release: "1"
+section: devel
+priority: optional
+maintainer: Cesar Menegatti <chmenegatti@users.noreply.github.com>
+description: |
+  Gerenciador de sessões de agentes de programação.
+  Encontre, pesquise e retome sessões do Claude Code, Codex e OpenCode.
+vendor: Cesar Menegatti
+homepage: https://github.com/chmenegatti/sessionflow
+license: MIT
+
+contents:
+  - src: ./stage/sessionflow
+    dst: /usr/bin/sessionflow
+    file_info: { mode: 0755 }
+  - src: ./stage/com.cesarmenegatti.sessionflow.desktop
+    dst: /usr/share/applications/com.cesarmenegatti.sessionflow.desktop
+  - src: ./stage/com.cesarmenegatti.sessionflow.metainfo.xml
+    dst: /usr/share/metainfo/com.cesarmenegatti.sessionflow.metainfo.xml
+  - src: ./stage/icons/
+    dst: /usr/share/icons/hicolor/
+    type: tree
+  - src: ./stage/LICENSE
+    dst: /usr/share/doc/sessionflow/copyright
+
+# GTK4 + WebKitGTK 6.0 (Ubuntu 24.04+, Debian 13+, Fedora 39+).
+depends:
+  - libgtk-4-1
+  - libwebkitgtk-6.0-4
+overrides:
+  rpm:
+    depends:
+      - gtk4
+      - webkitgtk6.0
+
+scripts:
+  postinstall: ./packaging/scripts/postinstall.sh
+  postremove: ./packaging/scripts/postinstall.sh

@@ -1,0 +1,12 @@
+.task
+.wails
+bin
+frontend/dist
+frontend/node_modules
+# Gerados pelo Taskfile (wails3 generate bindings) a cada build
+frontend/bindings
+!frontend/dist/.gitkeep
+dist
+
+# Mockup do redesign gerado com dados reais de sessões locais: fica fora do repositório
+docs/superpowers/specs/2026-11-22-redesign-aurora/

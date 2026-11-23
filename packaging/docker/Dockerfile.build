@@ -1,0 +1,23 @@
+# Ambiente de build de release. Ubuntu 24.04 define o piso de glibc do
+# binário (2.39): compilar numa distro mais nova impediria rodar nas
+# anteriores. Versões fixas para builds reproduzíveis.
+FROM ubuntu:24.04
+
+ARG GO_VERSION=1.26.11
+ARG NODE_VERSION=22.20.0
+ARG WAILS_VERSION=v3.1.0
+
+ENV DEBIAN_FRONTEND=noninteractive
+RUN apt-get update && apt-get install -y --no-install-recommends \
+      build-essential pkg-config ca-certificates curl git xz-utils file \
+      libgtk-4-dev libwebkitgtk-6.0-dev \
+      librsvg2-bin desktop-file-utils appstream \
+    && rm -rf /var/lib/apt/lists/*
+
+RUN curl -fsSL "https://go.dev/dl/go${GO_VERSION}.linux-amd64.tar.gz" | tar -C /usr/local -xz \
+ && curl -fsSL "https://nodejs.org/dist/v${NODE_VERSION}/node-v${NODE_VERSION}-linux-x64.tar.xz" | tar -C /usr/local --strip-components=1 -xJ
+
+ENV PATH=/usr/local/go/bin:/root/go/bin:$PATH GOTOOLCHAIN=local GOFLAGS=-buildvcs=false
+RUN go install github.com/wailsapp/wails/v3/cmd/wails3@${WAILS_VERSION}
+
+WORKDIR /src

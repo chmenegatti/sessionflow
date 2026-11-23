@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Name=sessionflow
+Exec=sessionflow
+Icon=sessionflow
+Categories=Development;
+Terminal=false
+Keywords=wails
+Version=1.0
+StartupNotify=false

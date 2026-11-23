@@ -1,0 +1,279 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
+@import "@fontsource-variable/inter";
+@import "@fontsource-variable/jetbrains-mono";
+
+@custom-variant dark (&:is(.dark *));
+
+@theme inline {
+    --font-heading: var(--font-sans);
+    --font-sans: 'Inter Variable', system-ui, sans-serif;
+    --font-mono: 'JetBrains Mono Variable', ui-monospace, monospace;
+    --color-accent2: var(--accent2);
+    --color-positive: var(--positive);
+    --color-negative: var(--negative);
+    --color-faint: var(--faint);
+    --color-claude: var(--claude);
+    --color-codex: var(--codex);
+    --color-opencode: var(--opencode);
+    --color-sidebar-ring: var(--sidebar-ring);
+    --color-sidebar-border: var(--sidebar-border);
+    --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+    --color-sidebar-accent: var(--sidebar-accent);
+    --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+    --color-sidebar-primary: var(--sidebar-primary);
+    --color-sidebar-foreground: var(--sidebar-foreground);
+    --color-sidebar: var(--sidebar);
+    --color-chart-5: var(--chart-5);
+    --color-chart-4: var(--chart-4);
+    --color-chart-3: var(--chart-3);
+    --color-chart-2: var(--chart-2);
+    --color-chart-1: var(--chart-1);
+    --color-ring: var(--ring);
+    --color-input: var(--input);
+    --color-border: var(--border);
+    --color-destructive: var(--destructive);
+    --color-accent-foreground: var(--accent-foreground);
+    --color-accent: var(--accent);
+    --color-muted-foreground: var(--muted-foreground);
+    --color-muted: var(--muted);
+    --color-secondary-foreground: var(--secondary-foreground);
+    --color-secondary: var(--secondary);
+    --color-primary-foreground: var(--primary-foreground);
+    --color-primary: var(--primary);
+    --color-popover-foreground: var(--popover-foreground);
+    --color-popover: var(--popover);
+    --color-card-foreground: var(--card-foreground);
+    --color-card: var(--card);
+    --color-foreground: var(--foreground);
+    --color-background: var(--background);
+    --radius-sm: calc(var(--radius) * 0.6);
+    --radius-md: calc(var(--radius) * 0.8);
+    --radius-lg: var(--radius);
+    --radius-xl: calc(var(--radius) * 1.4);
+    --radius-2xl: calc(var(--radius) * 1.8);
+    --radius-3xl: calc(var(--radius) * 2.2);
+    --radius-4xl: calc(var(--radius) * 2.6);
+}
+
+:root {
+    --background: oklch(1 0 0);
+    --foreground: oklch(0.145 0 0);
+    --card: oklch(1 0 0);
+    --card-foreground: oklch(0.145 0 0);
+    --popover: oklch(1 0 0);
+    --popover-foreground: oklch(0.145 0 0);
+    --primary: oklch(0.205 0 0);
+    --primary-foreground: oklch(0.985 0 0);
+    --secondary: oklch(0.97 0 0);
+    --secondary-foreground: oklch(0.205 0 0);
+    --muted: oklch(0.97 0 0);
+    --muted-foreground: oklch(0.556 0 0);
+    --accent: oklch(0.97 0 0);
+    --accent-foreground: oklch(0.205 0 0);
+    --destructive: oklch(0.577 0.245 27.325);
+    --border: oklch(0.922 0 0);
+    --input: oklch(0.922 0 0);
+    --ring: oklch(0.708 0 0);
+    --chart-1: oklch(0.87 0 0);
+    --chart-2: oklch(0.556 0 0);
+    --chart-3: oklch(0.439 0 0);
+    --chart-4: oklch(0.371 0 0);
+    --chart-5: oklch(0.269 0 0);
+    --radius: 0.625rem;
+    --sidebar: oklch(0.985 0 0);
+    --sidebar-foreground: oklch(0.145 0 0);
+    --sidebar-primary: oklch(0.205 0 0);
+    --sidebar-primary-foreground: oklch(0.985 0 0);
+    --sidebar-accent: oklch(0.97 0 0);
+    --sidebar-accent-foreground: oklch(0.205 0 0);
+    --sidebar-border: oklch(0.922 0 0);
+    --sidebar-ring: oklch(0.708 0 0);
+}
+
+/* Aurora (spec 2026-11-22-redesign-aurora §1): azul-noite, vidro e
+   acento ciano→violeta. Superfícies translúcidas sobre .aurora-bg. */
+.dark {
+    --background: #060914;
+    --foreground: #eef2ff;
+    --card: rgba(255, 255, 255, 0.045);
+    --card-foreground: #eef2ff;
+    --popover: rgba(12, 17, 38, 0.92);
+    --popover-foreground: #eef2ff;
+    --primary: #38e1f5;
+    --primary-foreground: #04121a;
+    --secondary: rgba(255, 255, 255, 0.07);
+    --secondary-foreground: #eef2ff;
+    --muted: rgba(255, 255, 255, 0.06);
+    --muted-foreground: #9aa3c7;
+    --accent: rgba(255, 255, 255, 0.07);
+    --accent-foreground: #eef2ff;
+    --destructive: #fb7185;
+    --border: rgba(255, 255, 255, 0.09);
+    --input: rgba(255, 255, 255, 0.12);
+    --ring: #38e1f5;
+    --chart-1: #fb923c;
+    --chart-2: #38e1f5;
+    --chart-3: #c084fc;
+    --chart-4: #a78bfa;
+    --chart-5: #5eead4;
+    --sidebar: rgba(8, 12, 30, 0.45);
+    --sidebar-foreground: #eef2ff;
+    --sidebar-primary: #38e1f5;
+    --sidebar-primary-foreground: #04121a;
+    --sidebar-accent: rgba(255, 255, 255, 0.07);
+    --sidebar-accent-foreground: #eef2ff;
+    --sidebar-border: rgba(255, 255, 255, 0.09);
+    --sidebar-ring: #38e1f5;
+    --radius: 0.75rem;
+    --accent2: #a78bfa;
+    --positive: #5eead4;
+    --negative: #fb7185;
+    --faint: #636c93;
+    --claude: #fb923c;
+    --codex: #38e1f5;
+    --opencode: #c084fc;
+    --border-strong: rgba(255, 255, 255, 0.16);
+    --glow: 0 0 24px rgba(56, 225, 245, 0.35);
+    --shadow-card: inset 0 1px 0 rgba(255, 255, 255, 0.08), 0 20px 50px -20px rgba(0, 0, 0, 0.8);
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+    }
+  body {
+    @apply bg-background text-foreground;
+    }
+  html {
+    @apply font-sans;
+    }
+}
+/* Markdown das conversas (viewer). */
+.markdown {
+  @apply text-sm leading-relaxed break-words;
+}
+.markdown > * + * {
+  @apply mt-3;
+}
+.markdown h1, .markdown h2, .markdown h3, .markdown h4 {
+  @apply font-semibold;
+}
+.markdown h1 { @apply text-lg; }
+.markdown h2 { @apply text-base; }
+.markdown ul { @apply list-disc pl-5; }
+.markdown ol { @apply list-decimal pl-5; }
+.markdown li + li { @apply mt-1; }
+.markdown blockquote { @apply border-l-2 pl-3 text-muted-foreground; }
+.markdown :not(pre) > code {
+  @apply rounded-md border border-primary/15 bg-primary/[0.08] px-1 py-0.5 font-mono text-[0.85em] text-[#a5f3fc];
+}
+.markdown pre {
+  @apply overflow-x-auto rounded-xl border p-3.5 font-mono text-xs leading-normal;
+  background: linear-gradient(180deg, rgba(8, 12, 28, 0.92), rgba(6, 9, 20, 0.92));
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04), 0 10px 30px -18px rgba(0, 0, 0, 0.9);
+}
+.markdown pre code.hljs { @apply bg-transparent p-0; }
+.markdown a { @apply decoration-primary/40; }
+
+/* Destaque de sintaxe na paleta Aurora (substitui o tema do highlight.js). */
+.hljs { color: #c9d1f0; }
+.hljs-comment, .hljs-quote { color: #636c93; font-style: italic; }
+.hljs-keyword, .hljs-selector-tag, .hljs-literal, .hljs-doctag, .hljs-meta .hljs-keyword { color: #a78bfa; }
+.hljs-string, .hljs-regexp, .hljs-addition, .hljs-template-tag { color: #5eead4; }
+.hljs-number, .hljs-symbol, .hljs-bullet, .hljs-variable.constant_ { color: #fb923c; }
+.hljs-title, .hljs-title.function_, .hljs-section { color: #38e1f5; }
+.hljs-title.class_, .hljs-type, .hljs-built_in { color: #7dd3fc; }
+.hljs-attr, .hljs-attribute, .hljs-property, .hljs-selector-attr, .hljs-selector-class, .hljs-selector-id { color: #93c5fd; }
+.hljs-name, .hljs-tag { color: #c084fc; }
+.hljs-variable, .hljs-params, .hljs-template-variable { color: #e2e8ff; }
+.hljs-meta, .hljs-meta .hljs-string { color: #f0abfc; }
+.hljs-deletion { color: #fb7185; }
+.hljs-emphasis { font-style: italic; }
+.hljs-strong { font-weight: 600; }
+.markdown table { @apply w-full border-collapse text-xs; }
+.markdown th, .markdown td { @apply border px-2 py-1 text-left; }
+.markdown th { @apply bg-white/[0.04] font-medium; }
+.markdown hr { @apply border-border; }
+
+/* Movimento (Fase de UI). Tudo respeita prefers-reduced-motion. */
+.skeleton {
+  background-image: linear-gradient(90deg, transparent 0, rgba(148, 163, 255, 0.10) 50%, transparent 100%);
+  background-size: 200% 100%;
+  animation: skeleton-shimmer 1.4s ease-in-out infinite;
+}
+@keyframes skeleton-shimmer {
+  from { background-position: 150% 0; }
+  to { background-position: -50% 0; }
+}
+
+/* ---- Aurora: fundo e superfícies ---- */
+
+/* Fundo fixo atrás de todo o app: brilhos ciano, violeta, azul e rosa. */
+.aurora-bg {
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background:
+    radial-gradient(620px 460px at 8% 2%, rgba(56, 225, 245, 0.30), transparent 62%),
+    radial-gradient(760px 560px at 92% 10%, rgba(167, 139, 250, 0.34), transparent 62%),
+    radial-gradient(820px 560px at 55% 62%, rgba(59, 130, 246, 0.14), transparent 65%),
+    radial-gradient(900px 520px at 30% 105%, rgba(236, 72, 153, 0.20), transparent 65%),
+    var(--background);
+}
+
+/* Vidro: só peças que flutuam (barra lateral, cabeçalho, painel, diálogos,
+   avisos, tooltips, menus). Desfoque custa GPU no WebKitGTK: nunca em cards,
+   linhas de lista ou viewer. */
+.glass {
+  background: rgba(8, 12, 30, 0.45);
+  backdrop-filter: blur(24px) saturate(150%);
+  -webkit-backdrop-filter: blur(24px) saturate(150%);
+  border-color: var(--border);
+}
+
+/* Card translúcido com borda iluminada no topo, sem desfoque. */
+.surface {
+  position: relative;
+  background: linear-gradient(160deg, rgba(255, 255, 255, 0.075), rgba(255, 255, 255, 0.025));
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow-card);
+}
+.surface::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  padding: 1px;
+  pointer-events: none;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.12), transparent 30%);
+  -webkit-mask: linear-gradient(#000, #000) content-box, linear-gradient(#000, #000);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+}
+
+/* Seleção: gradiente do acento, contorno e brilho. */
+.surface-sel {
+  background: linear-gradient(160deg, rgba(56, 225, 245, 0.16), rgba(167, 139, 250, 0.08));
+  border-color: rgba(56, 225, 245, 0.55);
+  box-shadow: var(--shadow-card), 0 0 0 1px rgba(56, 225, 245, 0.35), 0 14px 40px -18px rgba(56, 225, 245, 0.6);
+}
+
+/* Título de página com gradiente no texto. */
+.title-gradient {
+  background: linear-gradient(90deg, #fff, #c7d2fe 50%, var(--primary));
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .skeleton { animation: none; }
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}

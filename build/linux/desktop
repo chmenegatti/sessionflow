@@ -1,0 +1,13 @@
+[Desktop Entry]
+Version=1.0
+Name=SessionFlow
+Comment=Gerenciador desktop de sessões de agentes de programação
+# The Exec line includes %u to pass the URL to the application
+Exec=/usr/local/bin/sessionflow %u
+Terminal=false
+Type=Application
+Icon=sessionflow
+Categories=Utility;
+StartupWMClass=sessionflow
+
+ 

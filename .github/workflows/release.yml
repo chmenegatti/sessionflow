@@ -1,0 +1,51 @@
+# Release: ao enviar uma tag vX.Y.Z (igual ao arquivo VERSION), gera
+# AppImage, .deb, .rpm e tar.gz e publica um GitHub Release com
+# SHA256SUMS e as notas da versão tiradas do CHANGELOG.md.
+name: release
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+jobs:
+  packages:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Tag confere com VERSION
+        run: test "v$(cat VERSION)" = "$GITHUB_REF_NAME"
+      - name: Build de release (contêiner Ubuntu 24.04)
+        run: make release
+      - name: Testes de instalação em contêineres limpos
+        run: make test-install
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dist
+          path: |
+            dist/*.AppImage
+            dist/*.deb
+            dist/*.rpm
+            dist/*.tar.gz
+            dist/test/
+
+  publish:
+    needs: packages
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+          merge-multiple: true
+      - name: Checksums e notas
+        run: |
+          mkdir out
+          cp artifacts/*.AppImage artifacts/*.deb artifacts/*.rpm artifacts/*.tar.gz out/
+          (cd out && sha256sum -- * > SHA256SUMS)
+          packaging/scripts/release-notes.sh "$(cat VERSION)" > notes.md
+      - name: GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release create "$GITHUB_REF_NAME" out/* --title "SessionFlow $(cat VERSION)" --notes-file notes.md

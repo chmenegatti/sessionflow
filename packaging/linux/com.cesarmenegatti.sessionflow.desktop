@@ -1,0 +1,12 @@
+[Desktop Entry]
+Type=Application
+Name=SessionFlow
+GenericName=Gerenciador de sessões de agentes
+Comment=Encontre, pesquise e retome sessões do Claude Code, Codex e OpenCode
+Exec=sessionflow
+Icon=com.cesarmenegatti.sessionflow
+Terminal=false
+Categories=Development;Utility;
+Keywords=claude;codex;opencode;agent;session;ai;
+StartupNotify=true
+StartupWMClass=com.cesarmenegatti.sessionflow
