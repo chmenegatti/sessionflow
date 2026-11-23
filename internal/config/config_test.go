@@ -13,7 +13,7 @@ import (
 func envOf(m map[string]string) Env { return func(k string) string { return m[k] } }
 
 func TestResolvePathsDefaults(t *testing.T) {
-	p, err := ResolvePaths(envOf(nil), "/home/u")
+	p, err := ResolvePaths("linux", envOf(nil), "/home/u")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -35,7 +35,7 @@ func TestResolvePathsDefaults(t *testing.T) {
 }
 
 func TestResolvePathsXDGOverrides(t *testing.T) {
-	p, _ := ResolvePaths(envOf(map[string]string{
+	p, _ := ResolvePaths("linux", envOf(map[string]string{
 		"XDG_CONFIG_HOME": "/x/cfg",
 		"XDG_DATA_HOME":   "relativo/ignorado", // spec XDG: caminho relativo deve ser ignorado
 	}), "/home/u")
@@ -48,7 +48,7 @@ func TestResolvePathsXDGOverrides(t *testing.T) {
 }
 
 func TestResolvePathsRejectsRelativeHome(t *testing.T) {
-	if _, err := ResolvePaths(envOf(nil), "home"); err == nil {
+	if _, err := ResolvePaths("linux", envOf(nil), "home"); err == nil {
 		t.Fatal("esperava erro")
 	}
 }

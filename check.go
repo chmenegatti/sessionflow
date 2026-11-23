@@ -37,7 +37,7 @@ func check(w io.Writer) int {
 		fmt.Fprintln(w, "ERRO: diretório home:", err)
 		return 1
 	}
-	paths, err := config.ResolvePaths(os.Getenv, home)
+	paths, err := config.ResolvePaths(runtime.GOOS, os.Getenv, home)
 	if err != nil {
 		fmt.Fprintln(w, "ERRO: diretórios do app:", err)
 		return 1
@@ -107,7 +107,7 @@ func testTerminal(w io.Writer, args []string) int {
 		fmt.Fprintln(w, "ERRO:", err)
 		return 1
 	}
-	paths, err := config.ResolvePaths(os.Getenv, home)
+	paths, err := config.ResolvePaths(runtime.GOOS, os.Getenv, home)
 	if err != nil {
 		fmt.Fprintln(w, "ERRO:", err)
 		return 1

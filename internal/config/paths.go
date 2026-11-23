@@ -5,6 +5,7 @@ package config
 import (
 	"errors"
 	"path/filepath"
+	"strings"
 
 	"sessionflow/internal/domain"
 )
@@ -22,11 +23,40 @@ type Paths struct {
 	CacheDir  string `json:"cacheDir"`
 }
 
-// ResolvePaths aplica a XDG Base Directory Specification: variável definida e
-// absoluta vence; caso contrário usa o padrão relativo a home.
-func ResolvePaths(env Env, home string) (Paths, error) {
-	if !filepath.IsAbs(home) {
+// ResolvePaths devolve as pastas da aplicação no padrão de cada sistema
+// (goos = runtime.GOOS; recebido como parâmetro para testar qualquer SO):
+//   - linux: XDG Base Directory (variável absoluta vence; senão padrão no home);
+//   - windows: %APPDATA%\SessionFlow (config) e %LOCALAPPDATA%\SessionFlow\{data,logs,cache};
+//   - darwin: ~/Library/Application Support/SessionFlow (config e dados), ~/Library/Logs e ~/Library/Caches.
+func ResolvePaths(goos string, env Env, home string) (Paths, error) {
+	if !isAbs(goos, home) {
 		return Paths{}, errors.New("diretório home inválido")
+	}
+	switch goos {
+	case "windows":
+		dir := func(key string, fallback ...string) string {
+			if v := env(key); isAbs(goos, v) {
+				return v
+			}
+			return join(goos, append([]string{home}, fallback...)...)
+		}
+		roaming := dir("APPDATA", "AppData", "Roaming")
+		local := join(goos, dir("LOCALAPPDATA", "AppData", "Local"), winAppDir)
+		return Paths{
+			ConfigDir: join(goos, roaming, winAppDir),
+			DataDir:   join(goos, local, "data"),
+			StateDir:  join(goos, local, "logs"),
+			CacheDir:  join(goos, local, "cache"),
+		}, nil
+	case "darwin":
+		lib := join(goos, home, "Library")
+		support := join(goos, lib, "Application Support", winAppDir)
+		return Paths{
+			ConfigDir: support,
+			DataDir:   support,
+			StateDir:  join(goos, lib, "Logs", winAppDir),
+			CacheDir:  join(goos, lib, "Caches", winAppDir),
+		}, nil
 	}
 	xdg := func(key, fallback string) string {
 		if v := env(key); filepath.IsAbs(v) {
@@ -40,6 +70,41 @@ func ResolvePaths(env Env, home string) (Paths, error) {
 		StateDir:  xdg("XDG_STATE_HOME", ".local/state"),
 		CacheDir:  xdg("XDG_CACHE_HOME", ".cache"),
 	}, nil
+}
+
+// winAppDir é o nome da pasta no Windows e no macOS (convenção desses
+// sistemas: nome do produto, não minúsculas).
+const winAppDir = "SessionFlow"
+
+// isAbs e join seguem as regras do sistema goos, não as do sistema em que
+// o código roda (os testes montam caminhos do Windows no Linux).
+func isAbs(goos, p string) bool {
+	if goos != "windows" {
+		return strings.HasPrefix(p, "/")
+	}
+	if strings.HasPrefix(p, `\\`) { // UNC: \\servidor\compartilhamento
+		return true
+	}
+	return len(p) >= 3 && p[1] == ':' && (p[2] == '\\' || p[2] == '/') &&
+		(p[0] >= 'A' && p[0] <= 'Z' || p[0] >= 'a' && p[0] <= 'z')
+}
+
+func join(goos string, parts ...string) string {
+	if goos != "windows" {
+		return filepath.ToSlash(filepath.Join(parts...))
+	}
+	out := ""
+	for _, p := range parts {
+		if p == "" {
+			continue
+		}
+		if out == "" {
+			out = strings.TrimRight(p, `\/`)
+			continue
+		}
+		out += `\` + strings.Trim(p, `\/`)
+	}
+	return out
 }
 
 func (p Paths) ConfigFile() string { return filepath.Join(p.ConfigDir, "config.json") }
