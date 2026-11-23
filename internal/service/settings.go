@@ -92,7 +92,7 @@ func (s *SettingsService) Get(context.Context) SettingsView {
 		v.Providers = append(v.Providers, ps)
 	}
 	v.Terminal = TerminalSettings{Path: cfg.Terminal.Path, Args: nonNil(cfg.Terminal.Args)}
-	if t, err := terminal.Resolve(cfg.Terminal, s.look); err != nil {
+	if t, err := terminal.Resolve(runtime.GOOS, cfg.Terminal, s.look); err != nil {
 		v.Terminal.Error = err.Error()
 	} else {
 		v.Terminal.Resolved = t.Path
@@ -160,7 +160,7 @@ func (s *SettingsService) SetTerminal(_ context.Context, path string, args []str
 		if !filepath.IsAbs(path) {
 			return ErrPathNotAbsolute
 		}
-		if _, err := terminal.Resolve(t, s.look); err != nil {
+		if _, err := terminal.Resolve(runtime.GOOS, t, s.look); err != nil {
 			return err
 		}
 		t.Path = filepath.Clean(path)

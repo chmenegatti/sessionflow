@@ -59,23 +59,23 @@ func TestResolve(t *testing.T) {
 	os.WriteFile(notExec, nil, 0o644)
 	noLook := func(string) (string, error) { return "", errors.New("não") }
 
-	if tm, err := Resolve(Config{Path: kitty}, noLook); err != nil || !slices.Equal(tm.Args, known["kitty"]) {
+	if tm, err := Resolve("linux", Config{Path: kitty}, noLook); err != nil || !slices.Equal(tm.Args, known["kitty"]) {
 		t.Errorf("conhecido: %+v %v", tm, err)
 	}
-	if tm, err := Resolve(Config{Path: custom}, noLook); err != nil || !slices.Equal(tm.Args, []string{"-e", PlaceholderCmd}) {
+	if tm, err := Resolve("linux", Config{Path: custom}, noLook); err != nil || !slices.Equal(tm.Args, []string{"-e", PlaceholderCmd}) {
 		t.Errorf("desconhecido: %+v %v", tm, err)
 	}
-	if tm, err := Resolve(Config{Path: custom, Args: []string{"--cwd={dir}", "run", "{cmd}"}}, noLook); err != nil ||
+	if tm, err := Resolve("linux", Config{Path: custom, Args: []string{"--cwd={dir}", "run", "{cmd}"}}, noLook); err != nil ||
 		!slices.Equal(tm.Argv(Command{Path: "/a", Args: []string{"x"}, Dir: "/d"}), []string{custom, "--cwd=/d", "run", "/a", "x"}) {
 		t.Errorf("personalizado: %+v %v", tm, err)
 	}
 	for _, args := range [][]string{{"-e"}, {"{cmd}", "{cmd}"}, {"-e", "sh -c {cmd}"}} {
-		if _, err := Resolve(Config{Path: custom, Args: args}, noLook); !errors.Is(err, ErrInvalidTemplate) {
+		if _, err := Resolve("linux", Config{Path: custom, Args: args}, noLook); !errors.Is(err, ErrInvalidTemplate) {
 			t.Errorf("%q: %v", args, err)
 		}
 	}
 	for _, p := range []string{notExec, "kitty", filepath.Join(dir, "nao-existe")} {
-		if _, err := Resolve(Config{Path: p}, noLook); !errors.Is(err, ErrInvalidTerminal) {
+		if _, err := Resolve("linux", Config{Path: p}, noLook); !errors.Is(err, ErrInvalidTerminal) {
 			t.Errorf("%s: %v", p, err)
 		}
 	}
@@ -90,10 +90,10 @@ func TestResolve(t *testing.T) {
 		}
 		return "", errors.New("não")
 	}
-	if tm, err := Resolve(Config{}, look); err != nil || tm.Path != ptyxis || tm.Name() != "ptyxis" {
+	if tm, err := Resolve("linux", Config{}, look); err != nil || tm.Path != ptyxis || tm.Name() != "ptyxis" {
 		t.Errorf("detecção: %+v %v", tm, err)
 	}
-	if _, err := Resolve(Config{}, noLook); !errors.Is(err, ErrNoTerminal) {
+	if _, err := Resolve("linux", Config{}, noLook); !errors.Is(err, ErrNoTerminal) {
 		t.Errorf("nenhum: %v", err)
 	}
 }
@@ -110,7 +110,7 @@ func TestExecLauncherPassesArgvVerbatim(t *testing.T) {
 	os.Mkdir(work, 0o755)
 	t.Setenv("OUT", out)
 
-	tm, err := Resolve(Config{Path: term, Args: []string{"--wd", "{dir}", "--", "{cmd}"}}, nil)
+	tm, err := Resolve("linux", Config{Path: term, Args: []string{"--wd", "{dir}", "--", "{cmd}"}}, nil)
 	if err != nil {
 		t.Fatal(err)
 	}

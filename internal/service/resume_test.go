@@ -42,6 +42,7 @@ type resumeEnv struct {
 	src      string // arquivo da sessão Claude principal
 	clis     map[domain.ProviderID]string
 	now      time.Time
+	deps     ResumeDeps
 }
 
 const (
@@ -114,10 +115,11 @@ func newResumeEnv(t *testing.T) *resumeEnv {
 	providers := []provider.Provider{
 		claude.New(claude.Options{Home: dir}), codex.New(codex.Options{Home: dir}), opencode.New(opencode.Options{Home: dir}),
 	}
-	e.svc = NewResumeService(ResumeDeps{
+	e.deps = ResumeDeps{
 		Index: e.store, Providers: providers, Config: e.cfg, Launcher: e.launcher, LookPath: look,
-		Now: func() time.Time { return e.now }, Logger: discard,
-	})
+		Now: func() time.Time { return e.now }, Logger: discard, GOOS: "linux",
+	}
+	e.svc = NewResumeService(e.deps)
 	return e
 }
 
@@ -226,5 +228,58 @@ func TestWorkDir(t *testing.T) {
 		if _, err := WorkDir(p); err == nil {
 			t.Errorf("%q aceito", p)
 		}
+	}
+}
+
+// Windows: CLI que é shim do npm (.cmd) só roda por um shell; a retomada
+// vira "copiar o comando" e nada é executado.
+func TestResumeWindowsCmdShimIsCopyOnly(t *testing.T) {
+	e := newResumeEnv(t)
+	shim := filepath.Join(filepath.Dir(e.clis[domain.ProviderClaude]), "claude.cmd")
+	os.WriteFile(shim, nil, 0o755)
+	e.cfg.Update(func(c *config.Config) error {
+		pc := c.Providers[domain.ProviderClaude]
+		pc.CLIPath = shim
+		c.Providers[domain.ProviderClaude] = pc
+		return nil
+	})
+	d := e.deps
+	d.GOOS = "windows"
+	svc := NewResumeService(d)
+	id := "claude:" + claudeID
+	plan, err := svc.Plan(context.Background(), id)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !plan.CopyOnly || !strings.Contains(plan.CopyReason, "shell") || plan.Command == "" {
+		t.Errorf("plano %+v", plan)
+	}
+	if _, err := svc.Resume(context.Background(), id, true); !errors.Is(err, ErrCopyOnly) {
+		t.Errorf("Resume: %v", err)
+	}
+	if len(e.launcher.calls) != 0 {
+		t.Errorf("launcher chamado: %+v", e.launcher.calls)
+	}
+}
+
+// Windows com .exe: lança (console nova quando não há Windows Terminal).
+func TestResumeWindowsExeLaunches(t *testing.T) {
+	e := newResumeEnv(t)
+	exe := filepath.Join(filepath.Dir(e.clis[domain.ProviderClaude]), "claude.exe")
+	os.WriteFile(exe, nil, 0o755)
+	e.cfg.Update(func(c *config.Config) error {
+		pc := c.Providers[domain.ProviderClaude]
+		pc.CLIPath = exe
+		c.Providers[domain.ProviderClaude] = pc
+		return nil
+	})
+	d := e.deps
+	d.GOOS = "windows"
+	plan, err := NewResumeService(d).Resume(context.Background(), "claude:"+claudeID, true)
+	if err != nil || plan.CopyOnly || plan.Terminal != "console" {
+		t.Fatalf("%+v %v", plan, err)
+	}
+	if len(e.launcher.terms) != 1 || !e.launcher.terms[0].Console {
+		t.Errorf("terminal %+v", e.launcher.terms)
 	}
 }

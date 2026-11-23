@@ -79,7 +79,7 @@ func check(w io.Writer) int {
 		}
 		fmt.Fprintf(w, "  %-13s %s\n", id.DisplayName(), line)
 	}
-	if t, err := terminal.Resolve(cfg.Terminal, exec.LookPath); err != nil {
+	if t, err := terminal.Resolve(runtime.GOOS, cfg.Terminal, exec.LookPath); err != nil {
 		fmt.Fprintln(w, "Terminal: —", err)
 	} else {
 		fmt.Fprintln(w, "Terminal:", t.Path)
@@ -113,7 +113,7 @@ func testTerminal(w io.Writer, args []string) int {
 		return 1
 	}
 	cfg, _ := config.Load(paths.ConfigFile())
-	t, err := terminal.Resolve(cfg.Terminal, exec.LookPath)
+	t, err := terminal.Resolve(runtime.GOOS, cfg.Terminal, exec.LookPath)
 	if err != nil {
 		fmt.Fprintln(w, "ERRO:", err)
 		return 1
