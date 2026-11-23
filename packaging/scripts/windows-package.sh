@@ -33,12 +33,14 @@ rm -rf stage-win
 
 echo "==> verificação: instalar em silêncio, rodar, desinstalar"
 inst="$LOCALAPPDATA/Programs/SessionFlow"
-"dist/SessionFlow-$V-windows-amd64-setup.exe" /S
+# MSYS_NO_PATHCONV: sem ele o Git Bash troca "/S" por "S:/" e o instalador
+# abre a janela e fica esperando um clique. timeout: falha em vez de travar.
+MSYS_NO_PATHCONV=1 timeout 300 "dist/SessionFlow-$V-windows-amd64-setup.exe" /S
 test -f "$inst/sessionflow.exe"
 expect "^SessionFlow $V\$" "$inst/sessionflow.exe" --version
 expect "SELFTEST OK" "$inst/sessionflow.exe" --selftest
 reg query 'HKCU\Software\Microsoft\Windows\CurrentVersion\Uninstall\SessionFlow' >/dev/null
-"$inst/uninstall.exe" /S
+MSYS_NO_PATHCONV=1 timeout 300 "$inst/uninstall.exe" /S
 for _ in $(seq 1 30); do [ -e "$inst/sessionflow.exe" ] || break; sleep 1; done # o desinstalador sai antes de terminar
 test ! -e "$inst/sessionflow.exe"
 ! reg query 'HKCU\Software\Microsoft\Windows\CurrentVersion\Uninstall\SessionFlow' >/dev/null 2>&1

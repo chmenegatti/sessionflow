@@ -34,6 +34,7 @@ jobs:
 
   linux:
     needs: check
+    timeout-minutes: 45
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
@@ -53,6 +54,7 @@ jobs:
 
   windows:
     needs: check
+    timeout-minutes: 45
     runs-on: windows-latest
     defaults:
       run:
@@ -84,6 +86,7 @@ jobs:
 
   macos:
     needs: check
+    timeout-minutes: 45
     runs-on: macos-latest
     steps:
       - uses: actions/checkout@v4
